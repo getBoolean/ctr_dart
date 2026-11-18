@@ -1,0 +1,16 @@
+{
+  "name": "ctr-armv6k",
+  "target_os": "ctr",
+  "target_cpu": "arm",
+  "arm_version": 6,
+  "arm_fpu": "vfp",
+  "arm_float_abi": "hard",
+  "arm_use_neon": false,
+  "arm_use_integer_division": false,
+  "thread_pointer": "soft",
+  "cflags": ["-marm", "-march=armv6k", "-mtune=mpcore", "-mfpu=vfp", "-mfloat-abi=hard", "-mtp=soft"],
+  "compiler_prefix": "/opt/devkitpro/devkitARM/bin/arm-none-eabi-",
+  "libctru": "/opt/devkitpro/libctru",
+  "link_specs": ["ctr.specs"],
+  "numeric_policy": "software-assisted-ieee754-required"
+}

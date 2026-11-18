@@ -1,0 +1,8 @@
+{
+  "version": "0.1.0-preview.3",
+  "host_sdk": "3.14.0-226.0.dev",
+  "channel": "experimental",
+  "host": "Complete native SDK bundles for Windows x64, Linux x64 and macOS x64/arm64",
+  "target": "New Nintendo 3DS with Luma3DS and Homebrew Launcher",
+  "distribution": "compiled CLI, native compiler/assembler/linker, dependency resolver and precompiled target assets; no end-user Docker or script requirements"
+}

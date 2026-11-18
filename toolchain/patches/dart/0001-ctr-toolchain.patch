@@ -1,0 +1,278 @@
+diff --git a/build/config/BUILDCONFIG.gn b/build/config/BUILDCONFIG.gn
+index b4f5932d..ef6d253c 100644
+--- a/build/config/BUILDCONFIG.gn
++++ b/build/config/BUILDCONFIG.gn
+@@ -169,7 +169,19 @@ declare_args() {
+ # aix or one of the BSDs. If you need to check these, just check the
+ # current_os value directly.
+ 
+-if (current_os == "win") {
++is_ctr = current_os == "ctr"
++if (is_ctr) {
++  is_android = false
++  is_chromeos = false
++  is_fuchsia = false
++  is_ios = false
++  is_linux = false
++  is_mac = false
++  is_nacl = false
++  is_posix = false
++  is_watchos = false
++  is_win = false
++} else if (current_os == "win") {
+   is_android = false
+   is_chromeos = false
+   is_fuchsia = false
+@@ -287,6 +299,10 @@ _native_compiler_configs = [
+   "//build/config/compiler:runtime_library",
+ ]
+ 
++if (is_ctr) {
++  _native_compiler_configs += [ "//build/toolchain/ctr:target_config" ]
++}
++
+ if (use_flutter_cxx) {
+   _native_compiler_configs += [
+     "//third_party/libcxxabi:libcxxabi_config",
+@@ -436,7 +452,11 @@ set_defaults("component") {
+ # doing cross-compiles. When not cross-compiling, this will be the same as the
+ # default toolchain.
+ 
+-if (is_win) {
++if (is_ctr) {
++  assert(host_os == "linux", "CTR generators require a Linux host")
++  host_toolchain = "//build/toolchain/linux:clang_$host_cpu"
++  set_default_toolchain("//build/toolchain/ctr:arm")
++} else if (is_win) {
+   if (is_clang) {
+     host_toolchain = "//build/toolchain/win:clang_$host_cpu"
+     set_default_toolchain("//build/toolchain/win:clang_$current_cpu")
+diff --git a/build/config/arm.gni b/build/config/arm.gni
+index fbce649c..446414c8 100644
+--- a/build/config/arm.gni
++++ b/build/config/arm.gni
+@@ -27,6 +27,12 @@ if (current_cpu == "arm" || current_cpu == "arm64") {
+     # Whether to use the neon FPU instruction set or not.
+     arm_use_neon = true
+ 
++    # Optional hardware integer division is unavailable on ARM11.
++    arm_use_integer_division = true
++
++    # Empty selects the architecture default below.
++    arm_fpu = ""
++
+     # Whether to enable optional NEON code paths.
+     arm_optionally_use_neon = false
+ 
+@@ -40,14 +46,22 @@ if (current_cpu == "arm" || current_cpu == "arm64") {
+          arm_float_abi == "soft" || arm_float_abi == "softfp")
+ 
+   if (arm_version == 6) {
+-    arm_arch = "armv6"
++    if (current_os == "ctr") {
++      arm_arch = "armv6k"
++      assert(arm_float_abi == "hard")
++      assert(!arm_use_neon && !arm_use_integer_division)
++    } else {
++      arm_arch = "armv6"
++    }
+     if (arm_tune != "") {
+       arm_tune = ""
+     }
+     if (arm_float_abi == "") {
+       arm_float_abi = "softfp"
+     }
+-    arm_fpu = "vfp"
++    if (arm_fpu == "") {
++      arm_fpu = "vfp"
++    }
+ 
+     # Thumb is a reduced instruction set available on some ARM processors that
+     # has increased code density.
+@@ -65,9 +79,13 @@ if (current_cpu == "arm" || current_cpu == "arm64") {
+     arm_use_thumb = true
+ 
+     if (arm_use_neon) {
+-      arm_fpu = "neon"
++      if (arm_fpu == "") {
++        arm_fpu = "neon"
++      }
+     } else {
+-      arm_fpu = "vfpv3-d16"
++      if (arm_fpu == "") {
++        arm_fpu = "vfpv3-d16"
++      }
+     }
+   }
+ }
+diff --git a/build/toolchain/ctr/BUILD.gn b/build/toolchain/ctr/BUILD.gn
+new file mode 100644
+index 00000000..447ff732
+--- /dev/null
++++ b/build/toolchain/ctr/BUILD.gn
+@@ -0,0 +1,46 @@
++# CTR uses the upstream GCC template and Linux host generators.
++import("//build/toolchain/gcc_toolchain.gni")
++import("ctr.gni")
++
++config("target_config") {
++  assert(ctr_compiler_prefix != "" && ctr_libctru != "" && ctr_specs_file != "",
++         "Supply the pinned repository CTR profile")
++  cflags = ctr_cflags
++  asmflags = ctr_cflags
++  include_dirs = [ "$ctr_libctru/include" ]
++  defines = [ "__3DS__" ]
++  ldflags = ctr_cflags + [ "-specs=$ctr_specs_file" ]
++  lib_dirs = [ "$ctr_libctru/lib" ]
++  libs = [ "ctru", "m" ]
++}
++
++gcc_toolchain("arm") {
++  cc = "${ctr_compiler_prefix}gcc"
++  cxx = "${ctr_compiler_prefix}g++"
++  asm = cc
++  ar = "${ctr_compiler_prefix}ar"
++  ld = cxx
++  readelf = "${ctr_compiler_prefix}readelf"
++  nm = "${ctr_compiler_prefix}nm"
++  toolchain_cpu = "arm"
++  toolchain_os = "ctr"
++  is_clang = false
++}
++
++# This source-set proves configuration without requiring an unported VM.
++source_set("abi_probe") {
++  sources = [ "probe.cc" ]
++}
++
++# Executed on Linux, targeting ARM/CTR, unlike gen_snapshot_host_targeting_host.
++group("precompiler") {
++  deps = [ "//runtime/bin:gen_snapshot($host_toolchain)" ]
++}
++
++group("aot_runtime") {
++  deps = [ "//runtime:libdart_aotruntime" ]
++}
++
++group("jit_runtime") {
++  deps = [ "//runtime:libdart_jit" ]
++}
+diff --git a/build/toolchain/ctr/ctr.gni b/build/toolchain/ctr/ctr.gni
+new file mode 100644
+index 00000000..1066237d
+--- /dev/null
++++ b/build/toolchain/ctr/ctr.gni
+@@ -0,0 +1,7 @@
++# Explicit inputs supplied by the repository toolchain profile.
++declare_args() {
++  ctr_compiler_prefix = ""
++  ctr_libctru = ""
++  ctr_specs_file = ""
++  ctr_cflags = []
++}
+diff --git a/build/toolchain/ctr/probe.cc b/build/toolchain/ctr/probe.cc
+new file mode 100644
+index 00000000..3b1bea78
+--- /dev/null
++++ b/build/toolchain/ctr/probe.cc
+@@ -0,0 +1,15 @@
++// Configuration evidence, not a VM runtime or numeric qualification.
++#include <atomic>
++static_assert(sizeof(void*) == 4);
++static_assert(__ARM_ARCH == 6);
++#if !defined(__ARM_ARCH_6K__) || !defined(__ARM_PCS_VFP)
++#error "CTR requires ARMv6K hard float"
++#endif
++#if defined(__ARM_NEON) || defined(__ARM_FEATURE_IDIV)
++#error "CTR cannot use NEON or hardware integer division"
++#endif
++thread_local volatile unsigned ctr_thread_value;
++void ctr_abi_probe() {
++  ++ctr_thread_value;
++  std::atomic_thread_fence(std::memory_order_seq_cst);
++}
+diff --git a/runtime/BUILD.gn b/runtime/BUILD.gn
+index 9da80ef6..d945aa51 100644
+--- a/runtime/BUILD.gn
++++ b/runtime/BUILD.gn
+@@ -110,7 +110,9 @@ config("dart_precompiler_config") {
+ config("dart_os_config") {
+   defines = []
+ 
+-  if (target_os == "android") {
++  if (target_os == "ctr") {
++    defines += [ "DART_TARGET_OS_CTR" ]
++  } else if (target_os == "android") {
+     defines += [ "DART_TARGET_OS_ANDROID" ]
+   } else if (target_os == "fuchsia") {
+     defines += [ "DART_TARGET_OS_FUCHSIA" ]
+diff --git a/runtime/platform/globals.h b/runtime/platform/globals.h
+index 4bbd9c63..4804863f 100644
+--- a/runtime/platform/globals.h
++++ b/runtime/platform/globals.h
+@@ -105,7 +105,10 @@
+ // for more information on predefined macros:
+ //   - http://msdn.microsoft.com/en-us/library/b0084kay.aspx
+ //   - with gcc, run: "echo | gcc -E -dM -"
+-#if defined(__ANDROID__)
++#if defined(__3DS__)
++#define DART_HOST_OS_CTR 1
++
++#elif defined(__ANDROID__)
+ 
+ // Check for Android first, to determine its difference from Linux.
+ #define DART_HOST_OS_ANDROID 1
+@@ -421,9 +424,12 @@ struct simd128_value_t {
+ 
+ #if !defined(DART_TARGET_OS_ANDROID) && !defined(DART_TARGET_OS_FUCHSIA) &&    \
+     !defined(DART_TARGET_OS_MACOS_IOS) && !defined(DART_TARGET_OS_LINUX) &&    \
+-    !defined(DART_TARGET_OS_MACOS) && !defined(DART_TARGET_OS_WINDOWS)
++    !defined(DART_TARGET_OS_MACOS) && !defined(DART_TARGET_OS_WINDOWS) && \
++    !defined(DART_TARGET_OS_CTR)
+ // No target OS specified; pick the one matching the host OS.
+-#if defined(DART_HOST_OS_ANDROID)
++#if defined(DART_HOST_OS_CTR)
++#define DART_TARGET_OS_CTR 1
++#elif defined(DART_HOST_OS_ANDROID)
+ #define DART_TARGET_OS_ANDROID 1
+ #elif defined(DART_HOST_OS_FUCHSIA)
+ #define DART_TARGET_OS_FUCHSIA 1
+diff --git a/tools/gn.py b/tools/gn.py
+index a07ebca7..47decf49 100755
+--- a/tools/gn.py
++++ b/tools/gn.py
+@@ -256,6 +256,14 @@ def ToGnArgs(args, mode, arch, target_os, sanitizer, verify_sdk_hash,
+     gn_args['exclude_kernel_service'] = args.exclude_kernel_service
+ 
+     gn_args['is_clang'] = args.clang
++    if gn_args['target_os'] == 'ctr':
++        gn_args.update(arm_version=6, arm_float_abi='hard', arm_fpu='vfp',
++                       arm_use_neon=False, arm_use_integer_division=False,
++                       is_clang=False, dart_support_perfetto=False)
++        if os.environ.get('CTR_PROFILE_ARGS'):
++            import json
++            with open(os.environ['CTR_PROFILE_ARGS']) as profile_args:
++                gn_args.update(json.load(profile_args))
+ 
+     enable_code_coverage = args.code_coverage and gn_args['is_clang']
+     gn_args['dart_vm_code_coverage'] = enable_code_coverage
+@@ -358,7 +366,7 @@ def ProcessOptions(args):
+     for os_name in oses:
+         if not os_name in [
+                 'android', 'freebsd', 'linux', 'macos', 'win32', 'fuchsia',
+-                'ios', 'ios_simulator', 'watchos', 'watchos_simulator'
++                'ios', 'ios_simulator', 'watchos', 'watchos_simulator', 'ctr'
+         ]:
+             print("Unknown os %s" % os_name)
+             return False
+@@ -382,6 +390,10 @@ def ProcessOptions(args):
+                     "Cross-compilation to %s is not supported for architecture %s."
+                     % (os_name, arch))
+                 return False
++        elif os_name == 'ctr':
++            if HOST_OS != 'linux' or any(a != 'arm' for a in args.arch):
++                print('CTR requires a Linux host and ARM target')
++                return False
+         elif os_name == 'fuchsia':
+             if not HOST_OS in ['linux', 'macos']:
+                 print(

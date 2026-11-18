@@ -1,0 +1,29 @@
+diff --git a/BUILD.gn b/BUILD.gn
+index 5f01574..98d6271 100644
+--- a/BUILD.gn
++++ b/BUILD.gn
+@@ -89,6 +89,11 @@ config("icu_code") {
+     "U_CHARSET_IS_UTF8=1",
+   ]
+ 
++  if (current_os == "ctr") {
++    # newlib has stdio, but no mmap implementation.
++    defines += [ "U_HAVE_MMAP=0" ]
++  }
++
+   if (is_win) {
+     # Disable some compiler warnings.
+     cflags += [
+diff --git a/source/common/unicode/unistr.h b/source/common/unicode/unistr.h
+index 6395c65..8f9798b 100644
+--- a/source/common/unicode/unistr.h
++++ b/source/common/unicode/unistr.h
+@@ -4279,7 +4279,7 @@ UnicodeString::length() const {
+ inline int32_t
+ UnicodeString::getCapacity() const {
+   return (fUnion.fFields.fLengthAndFlags&kUsingStackBuffer) ?
+-    US_STACKBUF_SIZE : fUnion.fFields.fCapacity;
++    static_cast<int32_t>(US_STACKBUF_SIZE) : fUnion.fFields.fCapacity;
+ }
+ 
+ inline int32_t

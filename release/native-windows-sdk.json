@@ -1,0 +1,7 @@
+{
+  "version": "10.0.28000.2957",
+  "include_version": "10.0.28000.0",
+  "url": "https://download.microsoft.com/download/e6cfffdc-0d3e-4c6c-96d7-d491da459a07/KIT_BUNDLE_WINDOWSSDK_MEDIACREATION/winsdksetup.exe",
+  "sha256": "e8e264aca8bc34abdf592352bf09f986a85cdb96db0efba405ca9e149181fe61",
+  "reference": "https://learn.microsoft.com/en-us/windows/apps/windows-sdk/downloads"
+}

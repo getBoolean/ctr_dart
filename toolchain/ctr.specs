@@ -1,0 +1,7 @@
+%include <sync-cp15dmb.specs>
+
+*link:
++ -T 3dsx.ld%s -d --emit-relocs --use-blx --gc-sections -u __sync_synchronize_cp15dmb
+
+*startfile:
+3dsx_crt0%O%s crti%O%s crtbegin%O%s

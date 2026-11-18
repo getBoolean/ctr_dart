@@ -1,0 +1,47 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare named Compose toolchain
+        run: |
+          python3 -c 'import json; print("CTR_IMAGE=" + json.load(open("toolchain/versions.json"))["container"]["image"])' >> "$GITHUB_ENV"
+          echo "CTR_STATE_DIR=$RUNNER_TEMP/ctr-compose" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/ctr-compose/cache" "$RUNNER_TEMP/ctr-compose/tmp"
+      - name: Start toolchain with host-folder state
+        run: |
+          docker compose config
+          docker compose up -d toolchain
+      - name: Test source locking and build configuration
+        run: docker compose exec -T toolchain python3 -m unittest discover -s toolchain/test -v
+      - name: Test runtime launcher and result validation
+        run: docker compose exec -T toolchain python3 -m unittest discover -s runtime/ctr/test -v
+      - name: Test release producer contracts
+        run: docker compose exec -T toolchain python3 -m unittest discover -s release/test -v
+      - name: Stop toolchain
+        if: always()
+        run: docker compose down
+  dart:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/ctr_dart
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read the pinned Dart SDK version
+        working-directory: .
+        run: python3 -c 'import json; print("DART_VERSION=" + json.load(open("toolchain/versions.json"))["dart"]["version"])' >> "$GITHUB_ENV"
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: ${{ env.DART_VERSION }}
+      - run: dart pub get --enforce-lockfile
+      - run: dart analyze
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart test

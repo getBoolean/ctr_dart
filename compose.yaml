@@ -1,0 +1,23 @@
+name: ctr-dart
+
+services:
+  toolchain:
+    image: ${CTR_IMAGE:?Set CTR_IMAGE from toolchain/versions.json}
+    container_name: ctr-dart-toolchain
+    init: true
+    working_dir: /work
+    command: [sleep, infinity]
+    environment:
+      XDG_CACHE_HOME: /state/cache
+      TMPDIR: /state/tmp
+    volumes:
+      - type: bind
+        source: .
+        target: /work
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${CTR_STATE_DIR:?Set CTR_STATE_DIR to an existing host folder}
+        target: /state
+        bind:
+          create_host_path: false

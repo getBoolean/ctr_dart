@@ -5,10 +5,12 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
 
+import '../device/azahar_device.dart';
 import '../device/console_device.dart';
 import '../device/device.dart';
 import '../process.dart';
 import '../sdk.dart';
+import '../targets/ctr/azahar.dart';
 import '../targets/ctr/netloader.dart';
 import '../targets/ctr/package.dart';
 import '../targets/ctr/pipeline.dart';
@@ -23,7 +25,7 @@ const defaultHostPort = 17491;
 /// The `run` command, ready for `CommandRunner.addCommand`.
 ///
 /// See [DeviceRunner] for [start], [transportFor], [listenAddress],
-/// [deadlines] and [settle]. Program output and the `--verdict` JSON go to
+/// [deadlines], [settle] and [azaharHost]. Program output and the `--verdict` JSON go to
 /// [out]; prompts and messages go to [err].
 Command<int> runCommand({
   ProcessStarter start = startProcess,
@@ -31,6 +33,7 @@ Command<int> runCommand({
   InternetAddress? listenAddress,
   RunDeadlines deadlines = const RunDeadlines(),
   Duration settle = const Duration(seconds: 1),
+  AzaharHost? azaharHost,
   StringSink? out,
   StringSink? err,
 }) => _RunCommand(
@@ -40,6 +43,7 @@ Command<int> runCommand({
     listenAddress: listenAddress,
     deadlines: deadlines,
     settle: settle,
+    azaharHost: azaharHost,
   ),
   out ?? stdout,
   err ?? stderr,
@@ -47,7 +51,7 @@ Command<int> runCommand({
 
 /// Adds the options shared by commands that build and run on a device
 /// (`run`, `test`): target, mode (JIT default), device, wait, timeout,
-/// host port, project directory, offline and SDK.
+/// host port, Azahar path, project directory, offline and SDK.
 void addDeviceRunOptions(ArgParser parser) {
   addTargetOption(parser);
   parser
@@ -65,8 +69,9 @@ void addDeviceRunOptions(ArgParser parser) {
       'device',
       abbr: 'd',
       help:
-          'The device to run on: a console\'s IPv4 address, or "console" to '
-          'find one on the local network.',
+          'The device to run on: a console\'s IPv4 address, "console" to '
+          'find one on the local network, or "azahar" for the Azahar '
+          'emulator.',
       valueHelp: 'device',
       defaultsTo: 'console',
     )
@@ -86,6 +91,13 @@ void addDeviceRunOptions(ArgParser parser) {
       defaultsTo: '$defaultHostPort',
     )
     ..addOption(
+      'azahar',
+      help:
+          'The Azahar executable for -d azahar; defaults to '
+          'DARTBREW_AZAHAR, then azahar on PATH.',
+      valueHelp: 'path',
+    )
+    ..addOption(
       'project-directory',
       help: "The project's root; defaults to the current directory.",
       valueHelp: 'dir',
@@ -103,8 +115,15 @@ final class DeviceRunSettings {
   final Target target;
   final BuildMode mode;
 
-  /// The console to upload to, or null to discover one.
+  /// The console to upload to, or null to discover one. Unused when
+  /// [azahar] is set.
   final InternetAddress? address;
+
+  /// Whether to run in Azahar (`-d azahar`) instead of on a console.
+  final bool azahar;
+
+  /// The `--azahar` executable path, if given.
+  final String? azaharPath;
   final Duration wait;
   final Duration? timeout;
   final int hostPort;
@@ -124,6 +143,8 @@ final class DeviceRunSettings {
     required this.project,
     required this.offline,
     required this.sdkPath,
+    this.azahar = false,
+    this.azaharPath,
   });
 
   /// Reads and checks [args]; throws a [UsageException] with [usage] when an
@@ -151,16 +172,11 @@ final class DeviceRunSettings {
     }
     final device = args.option('device')!;
     InternetAddress? address;
-    if (device == 'azahar') {
-      throw UsageException(
-        'Running in Azahar is not supported yet; use -d console or -d <ip>.',
-        usage,
-      );
-    } else if (device != 'console') {
+    if (device != 'console' && device != 'azahar') {
       address = InternetAddress.tryParse(device);
       if (address == null || address.type != InternetAddressType.IPv4) {
         throw UsageException(
-          '-d must be "console" or a console\'s IPv4 address.',
+          '-d must be "console", "azahar" or a console\'s IPv4 address.',
           usage,
         );
       }
@@ -177,6 +193,8 @@ final class DeviceRunSettings {
       ).resolveSymbolicLinksSync(),
       offline: args.flag('offline'),
       sdkPath: sdkDirectory(args),
+      azahar: device == 'azahar',
+      azaharPath: args.option('azahar'),
     );
   }
 }
@@ -224,12 +242,17 @@ final class DeviceRunner {
   /// How long discovery keeps listening after the first console answers.
   final Duration settle;
 
+  /// The environment, operating system and working directory used to find
+  /// Azahar and its SD card; the real host by default.
+  final AzaharHost? azaharHost;
+
   DeviceRunner({
     this.start = startProcess,
     this.transportFor = defaultTransportFor,
     InternetAddress? listenAddress,
     this.deadlines = const RunDeadlines(),
     this.settle = const Duration(seconds: 1),
+    this.azaharHost,
   }) : listenAddress = listenAddress ?? InternetAddress.anyIPv4;
 
   /// Verifies the SDK, builds [entry] (inside [DeviceRunSettings.project])
@@ -240,8 +263,9 @@ final class DeviceRunner {
   /// The application is named `dartbrew-<fixture>-<mode>.3dsx` so repeated
   /// runs overwrite it on the SD card. [fixture] defaults to [fixtureFor].
   /// Prompts and build progress go to [err]. Throws a [RunAbort] when no
-  /// single device can be used or the upload fails; build failures throw
-  /// as in [buildCtrApplication].
+  /// single device can be used, Azahar or its SD card is not found, or the
+  /// upload or Azahar launch fails; build failures throw as in
+  /// [buildCtrApplication]. Azahar is closed when the run ends or fails.
   Future<DeviceRun> call(
     DeviceRunSettings settings, {
     required String entry,
@@ -249,6 +273,20 @@ final class DeviceRunner {
     required void Function(String text) onOutput,
     required StringSink err,
   }) async {
+    ({String executable, String sdmc, AzaharHost host})? azahar;
+    if (settings.azahar) {
+      final host = azaharHost ?? AzaharHost.current();
+      try {
+        final executable = locateAzahar(host, path: settings.azaharPath);
+        azahar = (
+          executable: executable,
+          sdmc: azaharSdmc(executable, host),
+          host: host,
+        );
+      } on AzaharNotFound catch (error) {
+        throw RunAbort(1, error.message);
+      }
+    }
     final sdk = await NativeSdk.load(settings.sdkPath);
     final project = settings.project;
     final mode = settings.mode;
@@ -293,25 +331,35 @@ final class DeviceRunner {
       );
     }
     try {
-      final transport = transportFor(settings.target);
-      final device = ConsoleDevice(
-        transport,
-        settings.address ??
-            await discoverConsole(
-              transport,
-              wait: settings.wait,
-              settle: settle,
-              prompt: err,
-            ),
-      );
+      final RunDevice device;
+      final appName = p.basename(build.application.path);
+      if (azahar != null) {
+        device = AzaharDevice(
+          executable: azahar.executable,
+          sdmc: azahar.sdmc,
+          start: start,
+          workingDirectory: azahar.host.currentDirectory,
+        );
+        err.writeln('Starting $appName in Azahar (${azahar.executable}).');
+      } else {
+        final transport = transportFor(settings.target);
+        final console = ConsoleDevice(
+          transport,
+          settings.address ??
+              await discoverConsole(
+                transport,
+                wait: settings.wait,
+                settle: settle,
+                prompt: err,
+              ),
+        );
+        device = console;
+        err.writeln('Sending $appName to ${console.address.address}.');
+      }
       final identity = <String, Object>{
         ...runIdentity(build, newRunId(), environment: device.environment),
         'schema': 2,
       };
-      err.writeln(
-        'Sending ${p.basename(build.application.path)} to '
-        '${device.address.address}.',
-      );
       try {
         final result = await runOnDevice(
           device: device,
@@ -333,6 +381,11 @@ final class DeviceRunner {
       throw RunAbort(error.exitCode, error.message);
     } on NetloaderException catch (error) {
       throw RunAbort(1, error.message);
+    } on ProcessException catch (error) {
+      throw RunAbort(
+        1,
+        'Could not start Azahar at ${error.executable}: ${error.message}',
+      );
     } finally {
       await listener.close();
     }

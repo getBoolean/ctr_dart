@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 import 'package:dartbrew/src/commands/devices.dart';
+import 'package:dartbrew/src/targets/ctr/azahar.dart';
 import 'package:dartbrew/src/targets/ctr/netloader.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 class DevicesRun {
@@ -13,12 +15,27 @@ class DevicesRun {
   DevicesRun(this.code, this.out, this.err);
 }
 
-Future<DevicesRun> runDevices(NetloaderClient client, List<String> args) async {
+/// Runs `devices` with [client]; Azahar is looked for only in [environment]
+/// (none by default), so an installed Azahar does not change the output.
+Future<DevicesRun> runDevices(
+  NetloaderClient client,
+  List<String> args, {
+  Map<String, String> environment = const {},
+}) async {
   final out = StringBuffer();
   final err = StringBuffer();
   final runner = CommandRunner<int>('dartbrew', 'test')
     ..addCommand(
-      devicesCommand(transportFor: (_) => client, out: out, err: err),
+      devicesCommand(
+        transportFor: (_) => client,
+        azaharHost: AzaharHost(
+          environment: environment,
+          operatingSystem: Platform.operatingSystem,
+          currentDirectory: Directory.systemTemp.path,
+        ),
+        out: out,
+        err: err,
+      ),
     );
   final code = await runner.run(['devices', ...args]);
   return DevicesRun(code, out.toString(), err.toString());
@@ -100,6 +117,42 @@ void main() {
 
     expect(r.code, 1);
     expect(r.err, contains('UDP port ${blocker.port}'));
+  });
+
+  test(
+    'Azahar found through DARTBREW_AZAHAR is listed with its path',
+    () async {
+      final dir = Directory.systemTemp.createTempSync('dartbrew-devices-');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final azahar = File(p.join(dir.path, 'azahar.exe'))
+        ..writeAsStringSync('');
+
+      final r = await runDevices(
+        loopbackClient(port: await freeUdpPort()),
+        ['--wait', '0.3'],
+        environment: {'DARTBREW_AZAHAR': azahar.path},
+      );
+
+      expect(r.code, 0);
+      expect(r.out, contains('Found 1 device:'));
+      expect(r.out, contains('azahar   ${azahar.path}'));
+    },
+  );
+
+  test('Azahar found on PATH is listed', () async {
+    final dir = Directory.systemTemp.createTempSync('dartbrew-devices-');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final name = Platform.isWindows ? 'azahar.exe' : 'azahar';
+    final azahar = File(p.join(dir.path, name))..writeAsStringSync('');
+
+    final r = await runDevices(
+      loopbackClient(port: await freeUdpPort()),
+      ['--wait', '0.3'],
+      environment: {'PATH': dir.path},
+    );
+
+    expect(r.code, 0);
+    expect(r.out, contains('azahar   ${azahar.path}'));
   });
 
   test('a non-numeric --wait is a usage error', () async {

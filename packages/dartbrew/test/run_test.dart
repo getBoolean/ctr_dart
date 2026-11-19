@@ -363,18 +363,4 @@ void main() {
     expect(identity['artifact_sha256'], verdict['artifact_sha256']);
     expect(identity['schema'], 2);
   });
-
-  test('-d azahar is a usage error for now', () async {
-    final runner = CommandRunner<int>('dartbrew', '')..addCommand(runCommand());
-    await expectLater(
-      runner.run(['run', '-d', 'azahar']),
-      throwsA(
-        isA<UsageException>().having(
-          (e) => e.message,
-          'message',
-          contains('not supported yet'),
-        ),
-      ),
-    );
-  });
 }

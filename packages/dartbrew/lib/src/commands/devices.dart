@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 
 import '../device/transport.dart';
+import '../targets/ctr/azahar.dart';
 import '../targets/ctr/netloader.dart';
 import '../targets/target.dart';
 
@@ -12,13 +13,20 @@ typedef TransportForTarget = DeviceTransport Function(Target target);
 /// The `devices` command, ready for `CommandRunner.addCommand`.
 ///
 /// [transportFor] picks the network transport per target and defaults to the
-/// real one. Output goes to [out] and errors to [err], defaulting to stdout
+/// real one. [azaharHost] is where Azahar is looked for; the real host by
+/// default. Output goes to [out] and errors to [err], defaulting to stdout
 /// and stderr.
 Command<int> devicesCommand({
   TransportForTarget transportFor = defaultTransportFor,
+  AzaharHost? azaharHost,
   StringSink? out,
   StringSink? err,
-}) => _DevicesCommand(transportFor, out ?? stdout, err ?? stderr);
+}) => _DevicesCommand(
+  transportFor,
+  azaharHost ?? AzaharHost.current(),
+  out ?? stdout,
+  err ?? stderr,
+);
 
 /// The real transport for [target].
 DeviceTransport defaultTransportFor(Target target) => switch (target.name) {
@@ -31,10 +39,11 @@ typedef _Device = ({String kind, String id});
 
 class _DevicesCommand extends Command<int> {
   final TransportForTarget _transportFor;
+  final AzaharHost _azaharHost;
   final StringSink _out;
   final StringSink _err;
 
-  _DevicesCommand(this._transportFor, this._out, this._err) {
+  _DevicesCommand(this._transportFor, this._azaharHost, this._out, this._err) {
     addTargetOption(argParser);
     argParser.addOption(
       'wait',
@@ -69,10 +78,10 @@ class _DevicesCommand extends Command<int> {
       _err.writeln(error.message);
       return 1;
     }
+    final azahar = target.name == 'ctr' ? findAzahar(_azaharHost) : null;
     final devices = <_Device>[
       for (final console in consoles) (kind: 'console', id: console.address),
-      // Local devices that need no network discovery, such as an emulator,
-      // are appended here.
+      if (azahar != null) (kind: 'azahar', id: azahar),
     ];
 
     if (devices.isEmpty) {

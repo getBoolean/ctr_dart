@@ -16,7 +16,7 @@ class CheckReleaseTest(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.root = Path(self.directory.name)
-        self.archive = self.root / f'ctr-dart-{VERSION}-linux-x64.zip'
+        self.archive = self.root / f'dartbrew-{VERSION}-linux-x64.zip'
         self.archive.write_bytes(b'qualified bytes')
         self.entry = dict(sdk_archive=self.archive.name, result='pass',
                           sdk_sha256=hashlib.sha256(b'qualified bytes').hexdigest())
@@ -33,16 +33,20 @@ class CheckReleaseTest(unittest.TestCase):
         self.assertEqual(check.check_release(self.results(), [self.archive], VERSION), [self.archive.name])
 
     def test_unqualified_archives_are_refused(self):
-        other = self.root / f'ctr-dart-{VERSION}-windows-x64.zip'
+        other = self.root / f'dartbrew-{VERSION}-windows-x64.zip'
         other.write_bytes(b'qualified bytes')
-        stale = self.root / 'ctr-dart-0.0.1-linux-x64.zip'
+        stale = self.root / 'dartbrew-0.0.1-linux-x64.zip'
         stale.write_bytes(b'qualified bytes')
+        renamed = self.root / f'ctr-dart-{VERSION}-linux-x64.zip'
+        renamed.write_bytes(b'qualified bytes')
         cases = [
             ('results for another version', self.results(version='0.0.1'), self.archive, 'not ' + VERSION),
             ('changed bytes', self.results(sdk_sha256='0' * 64), self.archive, 'differs'),
             ('failed qualification', self.results(result='fail'), self.archive, 'did not pass'),
             ('missing host record', self.results(), other, 'no qualification record'),
             ('older version name', self.results(sdk_archive=stale.name), stale, 'no qualification record'),
+            ('pre-dartbrew archive name', self.results(sdk_archive=renamed.name), renamed,
+             'no qualification record'),
         ]
         for label, results, archive, message in cases:
             with self.subTest(label), self.assertRaisesRegex(ValueError, message):

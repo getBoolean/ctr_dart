@@ -7,16 +7,16 @@ import tempfile
 import unittest
 
 
-@unittest.skipUnless(os.environ.get('CTR_NATIVE_SDK'), 'set CTR_NATIVE_SDK to a built native bundle')
+@unittest.skipUnless(os.environ.get('DARTBREW_NATIVE_SDK'), 'set DARTBREW_NATIVE_SDK to a built native bundle')
 class NativeSdkIntegration(unittest.TestCase):
     def setUp(self):
-        self.sdk = Path(os.environ['CTR_NATIVE_SDK']).resolve()
+        self.sdk = Path(os.environ['DARTBREW_NATIVE_SDK']).resolve()
         self.cli = self.sdk / ('dartbrew.exe' if os.name == 'nt' else 'dartbrew')
         retained = os.environ.get('CTR_NATIVE_VERIFY_DIR')
         if retained:
-            self.project = Path(tempfile.mkdtemp(prefix='ctr native SDK ', dir=retained))
+            self.project = Path(tempfile.mkdtemp(prefix='dartbrew SDK ', dir=retained))
         else:
-            self.temporary = tempfile.TemporaryDirectory(prefix='ctr native SDK ')
+            self.temporary = tempfile.TemporaryDirectory(prefix='dartbrew SDK ')
             self.addCleanup(self.temporary.cleanup)
             self.project = Path(self.temporary.name)
         self.entry = self.project / 'main.dart'

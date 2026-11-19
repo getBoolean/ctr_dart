@@ -62,3 +62,10 @@ class BundlePolicyTest(unittest.TestCase):
                 bundle.assemble('absent', 'absent', 'absent', 'absent', output, 'test')
             self.assertEqual(list(output.iterdir()), [owner])
             self.assertEqual(owner.read_text(), 'keep')
+
+    def test_readme_describes_dartbrew_commands(self):
+        for command in ('doctor', 'create', 'compile', 'run', 'test', 'devices'):
+            self.assertIn('dartbrew ' + command, bundle.README_TEXT)
+        self.assertIn('dartbrew.exe', bundle.README_TEXT)
+        self.assertNotIn('ctr build', bundle.README_TEXT)
+        self.assertNotIn('ctr doctor', bundle.README_TEXT)

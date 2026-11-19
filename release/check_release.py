@@ -4,7 +4,7 @@ Run before uploading to a GitHub release:
 
     python release/check_release.py --results <evidence>/results.json <archives...>
 
-Every archive must be named ctr-dart-<version>-<host>.zip for the version in
+Every archive must be named dartbrew-<version>-<host>.zip for the version in
 release/preview.json, and its SHA-256 must match a passing host entry in the
 committed qualification results for that same version.
 """
@@ -33,7 +33,7 @@ def check_release(results_path, archives, version=None):
         raise ValueError('no archives given')
     for archive in map(Path, archives):
         entry = qualified.get(archive.name)
-        if not archive.name.startswith(f'ctr-dart-{version}-') or entry is None:
+        if not archive.name.startswith(f'dartbrew-{version}-') or entry is None:
             raise ValueError(f'{archive.name} has no qualification record for {version}')
         if entry.get('result') != 'pass':
             raise ValueError(f'{archive.name} did not pass qualification')

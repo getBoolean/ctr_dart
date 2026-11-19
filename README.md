@@ -1,9 +1,12 @@
-# ctr_dart
+# dartbrew
 
-Build Dart programs as homebrew apps for the New Nintendo 3DS.
+Build, run and test Dart programs as homebrew apps.
 
-`ctr` is a command-line tool that compiles an ordinary Dart program into a
-`.3dsx` app for Homebrew Launcher. It runs the real Dart VM on the console's
+`dartbrew` is a command-line tool shaped like `dart`. It builds an ordinary Dart
+program for a homebrew target, and can run it or its `package:test` tests on a
+device with one command that streams the results back to your terminal. CTR,
+the codename of the 3DS-family platform, is the only target so far: apps are
+`.3dsx` files for Homebrew Launcher on New 3DS-family consoles. They run the real Dart VM on the console's
 ARM11 CPU, in either of two modes:
 
 - **AOT:** the program is compiled to ARMv6K machine code on your computer.
@@ -16,9 +19,10 @@ ARM11 CPU, in either of two modes:
 
 ## Requirements
 
-- **Console:** a New 3DS-family console running
-  [Luma3DS](https://github.com/LumaTeam/Luma3DS) and Homebrew Launcher. Testing
-  so far used a New 3DS. The original 3DS is unsupported.
+- **Device:** a New 3DS-family console running
+  [Luma3DS](https://github.com/LumaTeam/Luma3DS) and Homebrew Launcher, or the
+  [Azahar](https://github.com/azahar-emu/azahar) emulator. Testing so far used a
+  New 3DS. The original 3DS is unsupported.
 - **Computer:** Windows x64, Linux x64 (glibc 2.36 or newer), or macOS on Intel
   or Apple Silicon.
 
@@ -27,32 +31,47 @@ devkitARM or a cross compiler installed.
 
 ## Quick start
 
-1. Download the SDK ZIP for your computer from the
-   [latest release](https://github.com/getBoolean/ctr_dart/releases/tag/v0.1.0-preview.2)
-   and extract it. Keep the extracted folder together.
+1. Download the `dartbrew-...` SDK ZIP for your computer from the
+   [releases page](https://github.com/getBoolean/dartbrew/releases) and extract
+   it. Keep the extracted folder together, keep your projects outside it, and
+   add it to `PATH` (or call
+   `.\dartbrew.exe` on Windows and `./dartbrew` on macOS and Linux from that
+   folder).
 
-2. Check the SDK, then build your program. On Windows:
-
-   ```console
-   .\ctr.exe doctor
-   .\ctr.exe build C:/projects/hello/main.dart --mode aot --output C:/builds/hello
-   ```
-
-   On macOS and Linux:
+2. Check the SDK and create a project:
 
    ```console
-   ./ctr doctor
-   ./ctr build ~/projects/hello/main.dart --mode aot --output ~/builds/hello
+   dartbrew doctor
+   dartbrew create hello
+   cd hello
    ```
 
-   Use `--mode jit` to run the program on the console's JIT VM. For a project
-   with a `pubspec.yaml`, also pass `--project-directory`. The output directory
-   must not already exist.
+3. On the console, open Homebrew Launcher and press Y to start the netloader.
+   Then run the program or its tests from the project folder:
 
-3. Copy the contents of the output's `SDROOT` folder to the root of your SD card,
+   ```console
+   dartbrew run
+   dartbrew test
+   ```
+
+   Output streams to your terminal. Allow inbound UDP and TCP port 17491 through
+   your computer's firewall, or pick another TCP port with `--host-port`. Use
+   `-d azahar` to run in Azahar instead.
+
+4. To build an app to copy by hand, use `compile`. The output directory must not
+   already exist:
+
+   ```console
+   dartbrew compile --project-directory . --output ../builds/hello bin/main.dart
+   ```
+
+   Copy the contents of the output's `SDROOT` folder to the root of your SD card
    and launch the app from Homebrew Launcher.
 
-See the [SDK guide](release/README.md) for the full build and launch instructions.
+`dartbrew compile` replaces `ctr build` from earlier previews, and the `ctr`
+command is gone. `dartbrew pub`, `analyze`, `format`, `fix`, `doc` and `info`
+run the bundled Dart SDK. See the [SDK guide](release/README.md) for every
+command, Azahar setup and the SD card flow.
 
 ## Building from source
 
@@ -66,7 +85,7 @@ Layout:
 
 | Path | Contents |
 | --- | --- |
-| `packages/ctr_dart` | The `ctr` command-line tool. |
+| `packages/dartbrew` | The `dartbrew` command-line tool. |
 | `toolchain` | Dart SDK pins, the CTR patch queue and the SDK build scripts. |
 | `runtime/ctr` | The launcher that embeds the Dart VM on the console. |
 | `release` | Scripts that build and package the per-host SDK downloads. |

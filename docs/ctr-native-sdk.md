@@ -55,6 +55,16 @@ prebuilt platform/runtime/launcher/startup/math/library assets. The converter
 is implemented in the compiled Dart CLI. Build arguments use explicit bundled
 paths; recipient machines must not supply an interpreter or compiler.
 
+From 0.1.0-preview.4 the compiled CLI is `dartbrew`, built from
+`packages/dartbrew`, and each download is named
+`dartbrew-<version>-<host>.zip`. `dartbrew compile` replaces the `ctr build`
+command of earlier previews; their evidence below was recorded with that
+command. Producer component artifacts (`ctr-runtime-assets.zip`,
+`ctr-native-precompiler-*`, `ctr-binutils-*`, `source-ctr-binutils-*`) keep their
+target names. To rerun the real CLI checks against an extracted SDK, set
+`DARTBREW_NATIVE_SDK` to its folder and run
+`release/test/test_native_sdk_integration.py`.
+
 Native host tools are built separately for Windows x64, Linux x64, macOS Intel
 and Apple Silicon. Runtime assets can be shared across hosts, with per-mode
 compatibility identities retained. A host executable smoke test is distinct

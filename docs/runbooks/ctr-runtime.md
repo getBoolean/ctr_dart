@@ -134,6 +134,13 @@ the run without failing it. Without a host the launcher behaves as with schema
 1. The `begin` record carries the schema that was read (`1` or `2`), and
 `results.py` accepts only those two values.
 
+**Unsupported `dart:io`.** At bootstrap, after the script loads, the launcher
+attaches a fallback resolver to `dart:io` (`runtime/ctr/source/unsupported.cc`).
+Each `dart:io` native then throws a catchable `UnsupportedError` naming the
+native, instead of hitting the VM's `Failed to resolve native function` abort
+in AOT. The host-VM driver accepts `CTR_TEST_VM_FLAG=--link_natives_lazily` to
+exercise AOT's native linking on the host JIT VM.
+
 ## Host checks
 
 ```sh
@@ -151,8 +158,11 @@ run the guest.
 
 ## Build a Dart entrypoint
 
-Applications are built with the `ctr` CLI from `packages/ctr_dart`, shipped in
-the complete native SDK; see the [release usage instructions](../../release/README.md).
+Applications are built with `dartbrew compile` (or built and launched with
+`dartbrew run` and `dartbrew test`) from `packages/dartbrew`, shipped in the
+complete native SDK; see the [release usage instructions](../../release/README.md).
+`dartbrew run --verdict` prints the same pass, fail or incomplete verdict as
+`results.py` for the streamed records and writes `run.json` next to the build.
 Run its checks with the pinned Dart from the Compose service, keeping
 `PUB_CACHE` on `/state`:
 

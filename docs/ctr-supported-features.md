@@ -21,6 +21,16 @@ exact-artifact passes, each with successful cleanup and a terminal pass.
 
 ## Unsupported API failure shapes (pending device check)
 
+`dart:io` has no CTR implementation. The launcher attaches a fallback native
+resolver to `dart:io`, so calling any of it (files, directories, sockets,
+processes, stdout/stdin, `exit()`, `sleep()`, `Platform`, `HttpClient`) throws
+a catchable `UnsupportedError` with the text `Unsupported operation:
+<NativeName> is not supported on CTR (dart:io)`, for example
+`Namespace_GetDefault` for file access or `Process_Exit` for `exit()`. The run
+continues, and `dartbrew test` reports an uncaught one as a failed test naming
+the area. This was verified on a host VM, including AOT's lazy native linking;
+the device check below confirms it on CTR.
+
 How calls into unsupported areas fail on CTR has not been observed yet. The
 table is filled in from the device check; until then every cell is pending.
 

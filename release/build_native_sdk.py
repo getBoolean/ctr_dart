@@ -89,7 +89,7 @@ def build(precompiler, binutils, runtime, output):
         ['compile', 'exe', '-DDARTBREW_VERSION=' + version, 'bin/dartbrew.dart', '-o', str(cli)],
     ]:
         subprocess.run([str(dart), *arguments], cwd=package, check=True)
-    sdk = output / f'ctr-dart-{version}-{host["host"]}'
+    sdk = output / f'dartbrew-{version}-{host["host"]}'
     manifest = assemble(cli, precompiler, binutils, runtime, sdk, version)
     dependencies = audit_sdk(sdk, host['host'], manifest['tools'])
     archive = output / (sdk.name + '.zip')
@@ -108,7 +108,7 @@ def build(precompiler, binutils, runtime, output):
     env = dict(os.environ, PATH='')
     for arguments in [['--help'], ['--version'], ['doctor']]:
         subprocess.run([str(installed / cli.name), *arguments], env=env, check=True)
-    verification_env = dict(env, CTR_NATIVE_SDK=str(installed))
+    verification_env = dict(env, DARTBREW_NATIVE_SDK=str(installed))
     verification_work = output / 'verification-work'
     verification_work.mkdir()
     verification_env['CTR_NATIVE_VERIFY_DIR'] = str(verification_work)

@@ -19,6 +19,32 @@ exact-artifact passes, each with successful cleanup and a terminal pass.
 | Flutter | Planned after universal Dart compatibility | No Flutter engine rendering or application qualification |
 | Other Nintendo targets | Research scope only | Original 3DS, DS/DS Lite, Switch and Switch 2 are unqualified |
 
+## Unsupported API failure shapes (pending device check)
+
+How calls into unsupported areas fail on CTR has not been observed yet. The
+table is filled in from the device check; until then every cell is pending.
+
+| Area | Console (AOT/JIT) | Azahar (AOT/JIT) |
+| --- | --- | --- |
+| File read | pending | pending |
+| Socket connect | pending | pending |
+| `Process.run` | pending | pending |
+| `Isolate.spawn` | pending | pending |
+| `DynamicLibrary.open` (FFI) | pending | pending |
+| `stdout.write` | pending | pending |
+| `exit` | pending | pending |
+| `package:test_api` probe loads and runs | pending | pending |
+
+Procedure: build `test/programs/unsupported_apis.dart` and
+`test/projects/test_probe` (with `--project-directory`) with the current CLI in
+both JIT and AOT, then run each build on a New 3DS and in Azahar using the
+SD-card flow. For each area, record whether the call throws a catchable error
+(with its type and message), aborts the isolate, or kills the VM; the last
+`try:<area>` line printed attributes a VM kill. For the probe, record whether it
+loads, whether it prints `probe:passes:passed`, `probe:fails:failed` and
+`probe:done`, and its peak memory in JIT and AOT with 1 MiB reserved for the
+socket buffer.
+
 ## Reproducibility and evidence
 
 The source queue is pinned in `toolchain/versions.json`; target ABI/flags are in

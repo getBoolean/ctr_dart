@@ -37,6 +37,11 @@ final class ConsoleDevice implements RunDevice {
   @override
   String get environment => 'hardware';
 
+  @override
+  bool acceptsPeer(InternetAddress address) =>
+      address.type == this.address.type &&
+      address.address == this.address.address;
+
   /// Uploads [app] under its own file name, so the console saves it as
   /// `sdmc:/3ds/<name>` and repeated runs overwrite it.
   @override

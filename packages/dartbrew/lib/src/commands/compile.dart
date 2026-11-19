@@ -6,7 +6,6 @@ import 'package:path/path.dart' as p;
 import '../native_directory.dart';
 import '../process.dart';
 import '../sdk.dart';
-import '../targets/ctr/package.dart';
 import '../targets/ctr/pipeline.dart';
 import '../targets/target.dart';
 
@@ -74,7 +73,7 @@ class CompileCommand extends Command<int> {
         usage,
       );
     }
-    selectedTarget(args);
+    final target = selectedTarget(args);
     final sdk = await NativeSdk.load(sdkDirectory(args));
     final entry = File(args.rest.single).resolveSymbolicLinksSync();
     final project = Directory(
@@ -106,18 +105,20 @@ class CompileCommand extends Command<int> {
     output.parent.createSync(recursive: true);
     createDirectoryExclusively(output.path);
     final work = Directory(p.join(output.path, 'work'))..createSync();
-    final build = await buildCtrApplication(
+    final build = await target.build(
       sdk: sdk,
       project: project,
       entry: entry,
       mode: BuildMode.values.byName(args.option('mode')!),
       fixture: fixture,
       work: work,
-      application: File(p.join(output.path, 'application.3dsx')),
+      application: File(
+        p.join(output.path, 'application.${target.applicationExtension}'),
+      ),
       offline: args.flag('offline'),
       start: _start,
     );
-    packageCtrApplication(sdk, build, output);
+    target.package(sdk, build, output);
     final out = _out ?? stdout;
     out.writeln('Built ${build.application.path}');
     out.writeln(

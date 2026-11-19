@@ -5,7 +5,6 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
 
-import '../device/azahar_device.dart';
 import '../device/console_device.dart';
 import '../device/device.dart';
 import '../process.dart';
@@ -13,7 +12,7 @@ import '../sdk.dart';
 import '../targets/ctr/azahar.dart';
 import '../targets/ctr/netloader.dart';
 import '../targets/ctr/package.dart';
-import '../targets/ctr/pipeline.dart';
+import '../targets/ctr/pipeline.dart' show BuildMode, CtrBuild, fixtureFor;
 import '../targets/target.dart';
 import 'devices.dart';
 
@@ -231,8 +230,9 @@ final class DeviceRunner {
   /// Picks the network transport per target.
   final TransportForTarget transportFor;
 
-  /// Where the host listener binds; all IPv4 interfaces by default.
-  final InternetAddress listenAddress;
+  /// Where the host listener binds, or null for the default (see
+  /// [listenAddressFor]).
+  final InternetAddress? listenAddress;
 
   /// The connect and idle deadlines. Their `timeout` is replaced by
   /// [DeviceRunSettings.timeout].
@@ -250,11 +250,20 @@ final class DeviceRunner {
   DeviceRunner({
     this.start = startProcess,
     this.transportFor = defaultTransportFor,
-    InternetAddress? listenAddress,
+    this.listenAddress,
     this.deadlines = const RunDeadlines(),
     this.settle = const Duration(seconds: 1),
     this.azaharHost,
-  }) : listenAddress = listenAddress ?? InternetAddress.anyIPv4;
+  });
+
+  /// Where the host listener binds for a run with [settings]: [listenAddress]
+  /// when given, else loopback for Azahar, which runs on this host, and all
+  /// IPv4 interfaces for a console.
+  InternetAddress listenAddressFor(DeviceRunSettings settings) =>
+      listenAddress ??
+      (settings.azahar
+          ? InternetAddress.loopbackIPv4
+          : InternetAddress.anyIPv4);
 
   /// The SDK the latest [call] verified, or null before any call has.
   NativeSdk? get sdk => _sdk;
@@ -271,7 +280,7 @@ final class DeviceRunner {
   /// Prompts and build progress go to [err]. Throws a [RunAbort] when no
   /// single device can be used, Azahar or its SD card is not found, or the
   /// upload or Azahar launch fails; build failures throw as in
-  /// [buildCtrApplication]. Azahar is closed when the run ends or fails.
+  /// [Target.build]. Azahar is closed when the run ends or fails.
   Future<DeviceRun> call(
     DeviceRunSettings settings, {
     required String entry,
@@ -280,15 +289,14 @@ final class DeviceRunner {
     required StringSink err,
     String buildDirectory = 'run',
   }) async {
-    ({String executable, String sdmc, AzaharHost host})? azahar;
+    final target = settings.target;
+    ({RunDevice device, String description})? emulator;
     if (settings.azahar) {
-      final host = azaharHost ?? AzaharHost.current();
       try {
-        final executable = locateAzahar(host, path: settings.azaharPath);
-        azahar = (
-          executable: executable,
-          sdmc: azaharSdmc(executable, host),
-          host: host,
+        emulator = target.emulator(
+          host: azaharHost ?? AzaharHost.current(),
+          path: settings.azaharPath,
+          start: start,
         );
       } on AzaharNotFound catch (error) {
         throw RunAbort(1, error.message);
@@ -304,14 +312,14 @@ final class DeviceRunner {
         '.dart_tool',
         'dartbrew',
         buildDirectory,
-        settings.target.name,
+        target.name,
         mode.name,
       ),
     );
     if (output.existsSync()) output.deleteSync(recursive: true);
     final work = Directory(p.join(output.path, 'work'))
       ..createSync(recursive: true);
-    final build = await buildCtrApplication(
+    final build = await target.build(
       sdk: sdk,
       project: project,
       entry: entry,
@@ -319,7 +327,10 @@ final class DeviceRunner {
       fixture: name,
       work: work,
       application: File(
-        p.join(output.path, 'dartbrew-$name-${mode.name}.3dsx'),
+        p.join(
+          output.path,
+          'dartbrew-$name-${mode.name}.${target.applicationExtension}',
+        ),
       ),
       offline: settings.offline,
       start: start,
@@ -328,7 +339,10 @@ final class DeviceRunner {
 
     final ServerSocket listener;
     try {
-      listener = await ServerSocket.bind(listenAddress, settings.hostPort);
+      listener = await ServerSocket.bind(
+        listenAddressFor(settings),
+        settings.hostPort,
+      );
     } on SocketException catch (error) {
       throw RunAbort(
         1,
@@ -340,16 +354,11 @@ final class DeviceRunner {
     try {
       final RunDevice device;
       final appName = p.basename(build.application.path);
-      if (azahar != null) {
-        device = AzaharDevice(
-          executable: azahar.executable,
-          sdmc: azahar.sdmc,
-          start: start,
-          workingDirectory: azahar.host.currentDirectory,
-        );
-        err.writeln('Starting $appName in Azahar (${azahar.executable}).');
+      if (emulator != null) {
+        device = emulator.device;
+        err.writeln('Starting $appName in ${emulator.description}.');
       } else {
-        final transport = transportFor(settings.target);
+        final transport = transportFor(target);
         final console = ConsoleDevice(
           transport,
           settings.address ??

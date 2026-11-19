@@ -20,7 +20,8 @@ String azaharRunConfig(Map<String, Object> identity, int hostPort) =>
 ///
 /// [launch] writes the run's cfg to the card and starts Azahar on the app;
 /// the launcher reads the cfg and connects back over Azahar's host sockets.
-/// Its journal on the card is the fallback when it does not. Azahar returns
+/// Its journal on the card is the fallback when it does not. Only loopback
+/// peers are accepted, since Azahar runs on this host. Azahar returns
 /// to its game list when a program ends, so [dispose] closes it.
 final class AzaharDevice implements JournalingDevice {
   final String executable;
@@ -47,6 +48,9 @@ final class AzaharDevice implements JournalingDevice {
 
   @override
   String get environment => 'azahar';
+
+  @override
+  bool acceptsPeer(InternetAddress address) => address.isLoopback;
 
   File get _journalFile => File(p.join(sdmc, _journalName));
 

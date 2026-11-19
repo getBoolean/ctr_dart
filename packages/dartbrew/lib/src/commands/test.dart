@@ -8,8 +8,7 @@ import '../paths.dart';
 import '../process.dart';
 import '../stage_runner.dart';
 import '../targets/ctr/azahar.dart';
-import '../targets/ctr/pipeline.dart';
-import '../targets/ctr/test_entrypoint.dart';
+import '../targets/ctr/pipeline.dart' show fixtureFor, fixtureMaxLength;
 import '../test_runner/reporter.dart';
 import 'devices.dart';
 import 'run.dart';
@@ -115,14 +114,9 @@ class _TestCommand extends Command<int> {
       return noTestsRanExitCode;
     }
 
-    final testApi = resolvedTestApiVersion(project);
-    if (testApi != null && !isTestedTestApi(testApi)) {
-      _err.writeln(
-        'Warning: this project resolves test_api $testApi, but dartbrew '
-        'test is tested with test_api $testedTestApi. If the test build '
-        'fails or results look wrong, use a test package version that '
-        'resolves test_api $testedTestApi.',
-      );
+    final target = settings.target;
+    if (target.testEntrypointWarning(project) case final warning?) {
+      _err.writeln(warning);
     }
 
     final session = TestSession(
@@ -134,7 +128,7 @@ class _TestCommand extends Command<int> {
     DeviceRun run;
     var checked = false;
     while (true) {
-      final entry = writeTestEntrypoint(
+      final entry = target.writeTestEntrypoint(
         project: project,
         testFiles: files,
         names: names,
@@ -240,7 +234,7 @@ class _TestCommand extends Command<int> {
       try {
         await runner(
           'kernel',
-          kernelArguments(
+          settings.target.kernelArguments(
             sdk,
             mode: settings.mode,
             packageConfig: packages,

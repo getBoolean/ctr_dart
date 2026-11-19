@@ -29,10 +29,7 @@ Command<int> devicesCommand({
 );
 
 /// The real transport for [target].
-DeviceTransport defaultTransportFor(Target target) => switch (target.name) {
-  'ctr' => NetloaderClient(),
-  _ => throw UnsupportedError('No device transport for ${target.name}.'),
-};
+DeviceTransport defaultTransportFor(Target target) => target.transport();
 
 /// One reachable device: what it is and how to address it with `-d`.
 typedef _Device = ({String kind, String id});
@@ -78,7 +75,7 @@ class _DevicesCommand extends Command<int> {
       _err.writeln(error.message);
       return 1;
     }
-    final azahar = target.name == 'ctr' ? findAzahar(_azaharHost) : null;
+    final azahar = target.findEmulator(_azaharHost);
     final devices = <_Device>[
       for (final console in consoles) (kind: 'console', id: console.address),
       if (azahar != null) (kind: 'azahar', id: azahar),

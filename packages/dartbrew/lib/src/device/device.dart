@@ -9,6 +9,12 @@ abstract interface class RunDevice {
   /// The `environment` identity value of runs on this device.
   String get environment;
 
+  /// Whether a connection from [address] can be the app on this device.
+  ///
+  /// The host listener destroys connections from any other peer, so a
+  /// stray or hostile client cannot take over the run.
+  bool acceptsPeer(InternetAddress address);
+
   /// Sends [app] to the device and starts it with the run [identity], telling
   /// it to connect back to the host listener on [hostPort].
   ///
@@ -77,9 +83,11 @@ final class RunResult {
 /// the journal's end or a deadline.
 ///
 /// [listener] must already be bound, so a fast app cannot miss it. Each
-/// accepted output record's text goes to [onOutput] as it arrives. Later
-/// connections are refused. The listener is left open for the caller to
-/// close, and [device] is not disposed.
+/// accepted output record's text goes to [onOutput] as it arrives.
+/// Connections from peers [RunDevice.acceptsPeer] rejects are closed without
+/// affecting the run, and connections after the first accepted one are
+/// refused. The listener is left open for the caller to close, and [device]
+/// is not disposed.
 ///
 /// Throws whatever [RunDevice.launch] throws, such as a
 /// `NetloaderException`.
@@ -110,6 +118,16 @@ Future<RunResult> runOnDevice({
   StreamSubscription<List<int>>? journal;
   Timer? journalSilent;
   final accepting = listener.listen((socket) {
+    bool expected;
+    try {
+      expected = device.acceptsPeer(socket.remoteAddress);
+    } on SocketException {
+      expected = false; // The peer is already gone.
+    }
+    if (!expected) {
+      socket.destroy();
+      return;
+    }
     if (connection != null || journal != null || ended.isCompleted) {
       socket.destroy();
       return;

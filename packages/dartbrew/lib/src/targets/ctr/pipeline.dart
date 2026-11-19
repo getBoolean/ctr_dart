@@ -9,6 +9,7 @@ import '../../process.dart';
 import '../../sdk.dart';
 import '../../stage_runner.dart';
 import 'native_elf.dart';
+import 'smdh.dart';
 
 /// How the Dart program is carried in the application.
 enum BuildMode {
@@ -110,6 +111,10 @@ ${values.entries.map((e) => '${e.key}:\n.asciz ${jsonEncode(e.value)}').join('\n
 /// and `commands.json` go into [work], which must already exist. A failed
 /// stage throws a [ProcessException] and [application] is not written.
 ///
+/// The application carries the project's title, description and icon (see
+/// [readAppMetadata]); these are read before any stage runs, and metadata
+/// warnings go to [warnings] (standard error by default).
+///
 /// [fixture] must match [fixturePattern]; see [fixtureFor].
 Future<CtrBuild> buildCtrApplication({
   required NativeSdk sdk,
@@ -122,7 +127,13 @@ Future<CtrBuild> buildCtrApplication({
   bool offline = false,
   ProcessStarter start = startProcess,
   IOSink? progress,
+  StringSink? warnings,
 }) async {
+  final smdh = projectSmdh(
+    project,
+    fallbackTitle: p.basenameWithoutExtension(entry),
+    warnings: warnings ?? stderr,
+  );
   final run = StageRunner(sdk, work, start: start, progress: progress);
   final aot = mode == BuildMode.aot;
 
@@ -216,7 +227,7 @@ Future<CtrBuild> buildCtrApplication({
     '--end-group',
     ...assets('end'),
   ], 'link');
-  final artifact = encode3dsx(elf.readAsBytesSync());
+  final artifact = encode3dsx(elf.readAsBytesSync(), smdh: smdh);
   application.writeAsBytesSync(artifact);
   return CtrBuild(
     application: application,

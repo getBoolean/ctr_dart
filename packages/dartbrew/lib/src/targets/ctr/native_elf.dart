@@ -11,9 +11,14 @@ class _Segment {
   bool contains(int value) => value >= address && value < address + memorySize;
 }
 
-/// Convert this SDK's statically linked ARM ELF layout into a basic 3DSX image.
+/// Convert this SDK's statically linked ARM ELF layout into a 3DSX image.
 /// Addresses use the 3DSX logical page layout; relative subtype 1 denotes PREL31.
-Uint8List encode3dsx(Uint8List elf) {
+///
+/// Without [smdh] the image has the basic 32-byte header. With it, the header
+/// is extended to 44 bytes with the SMDH offset and size (RomFS offset 0) and
+/// [smdh] is appended after the relocation tables; the sections and
+/// relocations are unchanged.
+Uint8List encode3dsx(Uint8List elf, {Uint8List? smdh}) {
   final reader = ByteData.sublistView(elf);
   void range(int offset, int size) {
     if (offset < 0 || size < 0 || offset + size > elf.length) {
@@ -177,9 +182,10 @@ Uint8List encode3dsx(Uint8List elf) {
       tables.add(output.takeBytes());
     }
   }
-  final header = ByteData(56)
+  final headerSize = smdh == null ? 32 : 44;
+  final header = ByteData(headerSize + 24)
     ..setUint32(0, 0x58534433, Endian.little)
-    ..setUint16(4, 32, Endian.little)
+    ..setUint16(4, headerSize, Endian.little)
     ..setUint16(6, 8, Endian.little)
     ..setUint32(16, segments[0].memorySize, Endian.little)
     ..setUint32(20, segments[1].memorySize, Endian.little)
@@ -190,7 +196,17 @@ Uint8List encode3dsx(Uint8List elf) {
       Endian.little,
     );
   for (var i = 0; i < tables.length; i++) {
-    header.setUint32(32 + i * 4, tables[i].length ~/ 4, Endian.little);
+    header.setUint32(headerSize + i * 4, tables[i].length ~/ 4, Endian.little);
+  }
+  if (smdh != null) {
+    final smdhOffset = [
+      header.lengthInBytes,
+      for (final segment in segments) segment.bytes.length,
+      for (final table in tables) table.length,
+    ].reduce((a, b) => a + b);
+    header
+      ..setUint32(32, smdhOffset, Endian.little)
+      ..setUint32(36, smdh.length, Endian.little);
   }
   final output = BytesBuilder(copy: false)
     ..add(header.buffer.asUint8List())
@@ -200,5 +216,6 @@ Uint8List encode3dsx(Uint8List elf) {
   for (final table in tables) {
     output.add(table);
   }
+  if (smdh != null) output.add(smdh);
   return output.takeBytes();
 }

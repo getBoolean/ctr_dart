@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:args/command_runner.dart';
 import 'package:crypto/crypto.dart';
@@ -216,6 +217,55 @@ void main() {
     expect(_stages(project.output), isNot(contains('packages')));
     expect(sdk.calls('dart'), isEmpty);
     expect(_json(p.join(project.output, 'run.json'))['fixture'], 'main');
+  });
+
+  test('the application carries the project title in its SMDH', () async {
+    final sdk = ctrBuildSdk();
+    final project = _project(pubspec: 'name: snake\ndescription: Eat.\n');
+    await _compile(sdk, ['-o', project.output, project.entry]);
+    final bytes = File(
+      p.join(project.output, 'application.3dsx'),
+    ).readAsBytesSync();
+    final header = ByteData.sublistView(bytes);
+    expect(header.getUint16(4, Endian.little), 44);
+    final offset = header.getUint32(32, Endian.little);
+    expect(utf8.decode(bytes.sublist(offset, offset + 4)), 'SMDH');
+    // English short title.
+    final title = offset + 8 + 0x200;
+    expect(bytes.sublist(title, title + 12), [
+      for (final unit in 'snake\x00'.codeUnits) ...[unit, 0],
+    ]);
+  });
+
+  test('a missing icon fails before any stage runs', () async {
+    final sdk = ctrBuildSdk();
+    final project = _project(
+      pubspec: 'name: snake\ndartbrew:\n  icon: icon.png\n',
+    );
+    final runner = CommandRunner<int>('dartbrew', '')
+      ..addCommand(CompileCommand(start: startBuildStub));
+    await expectLater(
+      runner.run([
+        'compile',
+        '--sdk',
+        sdk.root.path,
+        '-o',
+        project.output,
+        project.entry,
+      ]),
+      throwsA(
+        isA<FileSystemException>().having(
+          (e) => e.path,
+          'path',
+          endsWith('icon.png'),
+        ),
+      ),
+    );
+    expect(sdk.calls('dart'), isEmpty);
+    expect(
+      File(p.join(project.output, 'application.3dsx')).existsSync(),
+      isFalse,
+    );
   });
 
   test('--offline is passed to pub get', () async {

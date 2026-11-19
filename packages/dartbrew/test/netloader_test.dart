@@ -152,6 +152,40 @@ void main() {
       );
     });
 
+    test('a console that accepts but never acknowledges is a lost '
+        'connection after the ack deadline', () async {
+      final silent = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(silent.close);
+      final held = <Socket>[];
+      silent.listen((socket) {
+        held.add(socket);
+        socket.listen((_) {}, onError: (Object _) {});
+      });
+      addTearDown(() {
+        for (final socket in held) {
+          socket.destroy();
+        }
+      });
+      final client = NetloaderClient(
+        port: silent.port,
+        connectTimeout: const Duration(seconds: 5),
+        ackTimeout: const Duration(milliseconds: 200),
+      );
+
+      final watch = Stopwatch()..start();
+      await expectLater(
+        client.upload(InternetAddress.loopbackIPv4, app([1, 2, 3])),
+        throwsA(
+          isA<NetloaderException>().having(
+            (e) => e.message,
+            'message',
+            contains('Lost the connection'),
+          ),
+        ),
+      );
+      expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
+    });
+
     test('an unreachable console fails naming the address', () async {
       await expectLater(
         loopbackClient(

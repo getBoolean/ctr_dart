@@ -66,12 +66,20 @@ final class NetloaderClient implements DeviceTransport {
   /// network adapter is tried on hosts with several.
   final InterfaceAddressLister interfaceAddresses;
 
+  /// How long [upload] waits for the console to accept the connection.
+  final Duration connectTimeout;
+
+  /// How long [upload] waits for each acknowledgement from the console.
+  final Duration ackTimeout;
+
   NetloaderClient({
     this.port = netloaderPort,
     this.replyPort = netloaderPort,
     InternetAddress? receiveAddress,
     InternetAddress? broadcastAddress,
     this.interfaceAddresses = ipv4InterfaceAddresses,
+    this.connectTimeout = const Duration(seconds: 15),
+    this.ackTimeout = const Duration(seconds: 10),
   }) : receiveAddress = receiveAddress ?? InternetAddress.anyIPv4,
        broadcastAddress =
            broadcastAddress ?? InternetAddress('255.255.255.255');
@@ -191,8 +199,9 @@ final class NetloaderClient implements DeviceTransport {
   /// console then appends its own `<hex ip>_3DSLINK_` entry, which libctru
   /// removes and turns into `__3dslink_host`.
   ///
-  /// Throws a [NetloaderException] when the console cannot be reached,
-  /// rejects the upload, or drops the connection.
+  /// Throws a [NetloaderException] when the console cannot be reached
+  /// within [connectTimeout], rejects the upload, drops the connection, or
+  /// leaves a write or acknowledgement pending for longer than [ackTimeout].
   @override
   Future<void> upload(
     InternetAddress console,
@@ -206,7 +215,7 @@ final class NetloaderClient implements DeviceTransport {
 
     final Socket socket;
     try {
-      socket = await Socket.connect(console, port);
+      socket = await Socket.connect(console, port, timeout: connectTimeout);
     } on SocketException catch (error) {
       throw NetloaderException(
         'Could not connect to the netloader at $where '
@@ -219,28 +228,40 @@ final class NetloaderClient implements DeviceTransport {
     final lost = NetloaderException(
       'Lost the connection to the console at $where during the upload.',
     );
+    // Each step must make progress within ackTimeout, so a console that
+    // stops answering without closing the connection cannot hang the upload.
+    Future<void> step(Future<void> future) =>
+        future.timeout(ackTimeout, onTimeout: () => throw lost);
+    Future<void> ack() async {
+      final code = await reader.int32().timeout(
+        ackTimeout,
+        onTimeout: () => throw lost,
+      );
+      _checkAck(code ?? (throw lost), where);
+    }
+
     try {
       final nameBytes = utf8.encode(name);
       socket
         ..add(_int32(nameBytes.length))
         ..add(nameBytes)
         ..add(_int32(data.length));
-      await socket.flush();
-      _checkAck(await reader.int32() ?? (throw lost), where);
+      await step(socket.flush());
+      await ack();
 
       for (final frame in compressedFrames(data)) {
         socket
           ..add(_int32(frame.length))
           ..add(frame);
+        await step(socket.flush());
       }
-      await socket.flush();
-      _checkAck(await reader.int32() ?? (throw lost), where);
+      await ack();
 
       socket
         ..add(_int32(argv.length))
         ..add(argv);
-      await socket.flush();
-      await socket.close();
+      await step(socket.flush());
+      await step(socket.close());
     } on SocketException {
       throw lost;
     } finally {

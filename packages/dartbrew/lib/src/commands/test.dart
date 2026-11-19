@@ -4,8 +4,8 @@ import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
 
 import '../device/device.dart';
+import '../paths.dart';
 import '../process.dart';
-import '../sdk.dart';
 import '../stage_runner.dart';
 import '../targets/ctr/azahar.dart';
 import '../targets/ctr/pipeline.dart';
@@ -224,7 +224,7 @@ class _TestCommand extends Command<int> {
     DeviceRunSettings settings,
     List<String> files,
   ) async {
-    final sdk = await NativeSdk.load(settings.sdkPath);
+    final sdk = _runner.sdk!;
     final work = Directory(
       p.join(settings.project, '.dart_tool', 'dartbrew', 'test', 'check'),
     );
@@ -238,13 +238,17 @@ class _TestCommand extends Command<int> {
     for (var i = 0; i < files.length; i++) {
       final stage = 'check-$i';
       try {
-        await runner('kernel', [
-          if (settings.mode == BuildMode.aot) '--aot',
-          '--platform=${sdk.asset(sdk.runtime['platform'] as String)}',
-          if (packages.existsSync()) '--packages=${packages.path}',
-          '--output=${p.join(work.path, '$stage.dill')}',
-          files[i],
-        ], stage);
+        await runner(
+          'kernel',
+          kernelArguments(
+            sdk,
+            mode: settings.mode,
+            packageConfig: packages,
+            output: p.join(work.path, '$stage.dill'),
+            entry: files[i],
+          ),
+          stage,
+        );
       } on ProcessException {
         final log = File(p.join(work.path, '$stage.log'));
         failures[files[i]] = log.existsSync()
@@ -256,12 +260,15 @@ class _TestCommand extends Command<int> {
   }
 
   static String _suitePath(String project, String file) =>
-      p.posix.joinAll(p.split(p.relative(file, from: project)));
+      posixRelative(file, from: project);
 
   /// The application identity token: the project's, marked as a test build
   /// so it does not overwrite the `run` application on the SD card.
   static String _fixture(String project, String entry) {
+    const suffix = '-test';
+    const maxBase = fixtureMaxLength - suffix.length;
     final base = fixtureFor(project, entry);
-    return '${base.length > 59 ? base.substring(0, 59) : base}-test';
+    return '${base.length > maxBase ? base.substring(0, maxBase) : base}'
+        '$suffix';
   }
 }

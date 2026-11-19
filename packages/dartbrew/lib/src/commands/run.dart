@@ -16,7 +16,6 @@ import '../targets/ctr/package.dart';
 import '../targets/ctr/pipeline.dart';
 import '../targets/target.dart';
 import 'devices.dart';
-import 'doctor.dart';
 
 /// The default TCP port the host listens on for the app's connection; the
 /// port `3dslink -s` uses, so one firewall rule covers both.
@@ -246,6 +245,8 @@ final class DeviceRunner {
   /// Azahar and its SD card; the real host by default.
   final AzaharHost? azaharHost;
 
+  NativeSdk? _sdk;
+
   DeviceRunner({
     this.start = startProcess,
     this.transportFor = defaultTransportFor,
@@ -254,6 +255,9 @@ final class DeviceRunner {
     this.settle = const Duration(seconds: 1),
     this.azaharHost,
   }) : listenAddress = listenAddress ?? InternetAddress.anyIPv4;
+
+  /// The SDK the latest [call] verified, or null before any call has.
+  NativeSdk? get sdk => _sdk;
 
   /// Verifies the SDK, builds [entry] (inside [DeviceRunSettings.project])
   /// into `.dart_tool/dartbrew/<buildDirectory>/<target>/<mode>/` of the
@@ -290,7 +294,7 @@ final class DeviceRunner {
         throw RunAbort(1, error.message);
       }
     }
-    final sdk = await NativeSdk.load(settings.sdkPath);
+    final sdk = _sdk = await NativeSdk.load(settings.sdkPath);
     final project = settings.project;
     final mode = settings.mode;
     final name = fixture ?? fixtureFor(project, entry);
@@ -359,10 +363,12 @@ final class DeviceRunner {
         device = console;
         err.writeln('Sending $appName to ${console.address.address}.');
       }
-      final identity = <String, Object>{
-        ...runIdentity(build, newRunId(), environment: device.environment),
-        'schema': 2,
-      };
+      final identity = runIdentity(
+        build,
+        newRunId(),
+        environment: device.environment,
+        schema: 2,
+      );
       try {
         final result = await runOnDevice(
           device: device,
@@ -456,9 +462,7 @@ class _RunCommand extends Command<int> {
     final result = run.result;
     if (result.exit.message case final message?) _err.writeln(message);
     if (args.flag('verdict')) {
-      File(
-        p.join(run.output.path, 'run.json'),
-      ).writeAsStringSync('${jsonEncode(run.identity)}\n');
+      writeRunRecord(run.output.path, run.identity);
       _out.writeln(
         jsonEncode({
           'outcome': result.verdict.outcome.name,

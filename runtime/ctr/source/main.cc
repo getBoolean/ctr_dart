@@ -123,7 +123,6 @@ int main(int argc, char** argv) {
     input.Stop();
     run.outcome = run.report.End(run.outcome, cleanup);
   }
-  // The terminal record is already flushed: close the socket, socExit, free.
   run.report.Attach(nullptr);
   link.Close();
   if (journal && fclose(journal)) run.outcome = ctr::Outcome::fail;

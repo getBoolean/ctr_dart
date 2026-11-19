@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../paths.dart';
 import '../../test_runner/events.dart';
 
 /// The `test_api` versions the generated entrypoint is tested against. It
@@ -64,12 +65,9 @@ File writeTestEntrypoint({
     testEntrypointSource(
       imports: [
         for (final test in testFiles)
-          p.posix.joinAll(p.split(p.relative(test, from: file.parent.path))),
+          posixRelative(test, from: file.parent.path),
       ],
-      paths: [
-        for (final test in testFiles)
-          p.posix.joinAll(p.split(p.relative(test, from: project))),
-      ],
+      paths: [for (final test in testFiles) posixRelative(test, from: project)],
       names: names,
       plainNames: plainNames,
       firstId: firstId,

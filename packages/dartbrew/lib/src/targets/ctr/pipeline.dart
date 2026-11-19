@@ -20,8 +20,11 @@ enum BuildMode {
   jit,
 }
 
+/// The longest fixture identity token the launcher's fixed fields hold.
+const fixtureMaxLength = 64;
+
 /// Identity tokens must match this; the launcher stores them in fixed fields.
-final fixturePattern = RegExp(r'^[A-Za-z0-9_-]{1,64}$');
+final fixturePattern = RegExp('^[A-Za-z0-9_-]{1,$fixtureMaxLength}\$');
 
 /// The fixture identity token for [entry] in [project]: the pubspec `name`,
 /// or the entry file's base name when there is no pubspec name, reduced to
@@ -38,9 +41,27 @@ String fixtureFor(String project, String entry) {
     RegExp(r'[^A-Za-z0-9_-]'),
     '_',
   );
-  if (token.length > 64) token = token.substring(0, 64);
+  if (token.length > fixtureMaxLength) {
+    token = token.substring(0, fixtureMaxLength);
+  }
   return token.isEmpty ? 'app' : token;
 }
+
+/// The kernel compiler arguments that compile [entry] to [output] for
+/// [mode], resolving packages with [packageConfig] when it exists.
+List<String> kernelArguments(
+  NativeSdk sdk, {
+  required BuildMode mode,
+  required File packageConfig,
+  required String output,
+  required String entry,
+}) => [
+  if (mode == BuildMode.aot) '--aot',
+  '--platform=${sdk.asset(sdk.runtime['platform'] as String)}',
+  if (packageConfig.existsSync()) '--packages=${packageConfig.path}',
+  '--output=$output',
+  entry,
+];
 
 /// The result of [buildCtrApplication].
 final class CtrBuild {
@@ -147,13 +168,17 @@ Future<CtrBuild> buildCtrApplication({
     );
   }
   final kernel = p.join(work.path, 'application.dill');
-  await run('kernel', [
-    if (aot) '--aot',
-    '--platform=${sdk.asset(sdk.runtime['platform'] as String)}',
-    if (packageConfig.existsSync()) '--packages=${packageConfig.path}',
-    '--output=$kernel',
-    entry,
-  ], 'kernel');
+  await run(
+    'kernel',
+    kernelArguments(
+      sdk,
+      mode: mode,
+      packageConfig: packageConfig,
+      output: kernel,
+      entry: entry,
+    ),
+    'kernel',
+  );
   final assembly = File(p.join(work.path, 'payload.S'));
   if (aot) {
     await run('snapshot', [

@@ -99,7 +99,6 @@ final class NetloaderClient implements DeviceTransport {
       }
     }
 
-    // Keeps [socket] for cleanup, or closes it when discovery already ended.
     bool keep(RawDatagramSocket socket) {
       if (stopped) {
         socket.close();
@@ -188,9 +187,9 @@ final class NetloaderClient implements DeviceTransport {
   /// Sends [app] to the netloader on [console], which saves it as
   /// `sdmc:/3ds/<basename>` and launches it.
   ///
-  /// The app's argv is [argv0] (default `sdmc:/3ds/<basename>`) followed by
-  /// [arguments]; the console then appends its own `<hex ip>_3DSLINK_` entry,
-  /// which libctru removes and turns into `__3dslink_host`.
+  /// The app's argv is `sdmc:/3ds/<basename>` followed by [arguments]; the
+  /// console then appends its own `<hex ip>_3DSLINK_` entry, which libctru
+  /// removes and turns into `__3dslink_host`.
   ///
   /// Throws a [NetloaderException] when the console cannot be reached,
   /// rejects the upload, or drops the connection.
@@ -199,10 +198,9 @@ final class NetloaderClient implements DeviceTransport {
     InternetAddress console,
     File app, {
     List<String> arguments = const [],
-    String? argv0,
   }) async {
     final name = p.basename(app.path);
-    final argv = encodeArgv([argv0 ?? 'sdmc:/3ds/$name', ...arguments]);
+    final argv = encodeArgv(['sdmc:/3ds/$name', ...arguments]);
     final data = await app.readAsBytes();
     final where = '${console.address}:$port';
 

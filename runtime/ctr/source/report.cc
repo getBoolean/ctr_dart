@@ -96,7 +96,6 @@ ArgIdentity ReadArgs(int argc, char** argv, const BuildIdentity& build,
     run->values[index] = value + 1;
   }
   if (!any) return ArgIdentity::absent;
-  // run_id, artifact_sha256 and environment describe this launch; schema 2 only.
   if (!seen[0] || run->values[0] != "2" || !seen[1] || !seen[5] || !seen[7])
     return ArgIdentity::invalid;
   const char* linked[] = {build.fixture, build.mode, build.compatibility, build.build_id};

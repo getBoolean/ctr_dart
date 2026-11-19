@@ -7,7 +7,7 @@
 namespace ctr {
 namespace {
 // A native function receives only its arguments, so each distinct name gets
-// its own slot function. The SDK's dart:io declares 184 distinct natives.
+// its own slot function.
 // Only the single mutator thread resolves natives (one isolate).
 constexpr int kSlots = 256;
 const char* names[kSlots];

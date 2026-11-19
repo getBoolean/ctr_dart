@@ -7,7 +7,6 @@ import '../process.dart';
 import '../sdk.dart';
 import '../targets/ctr/templates.dart';
 import '../targets/target.dart';
-import 'doctor.dart';
 
 /// Dart reserved words, which a package name cannot be.
 const _reservedWords = {
@@ -133,7 +132,6 @@ class CreateCommand extends Command<int> {
     if (args.rest.length != 1) {
       throw UsageException('create requires one directory.', usage);
     }
-    // Only one target exists; the option keeps the command shape stable.
     selectedTarget(args);
     final directory = Directory(p.normalize(p.absolute(args.rest.single)));
     final name = p.basename(directory.path);

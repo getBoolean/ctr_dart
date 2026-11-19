@@ -31,14 +31,16 @@ Map<String, Object?> artifactRecord(CtrBuild build) => {
   'sdk_manifest_sha256': build.sdkManifestSha256,
 };
 
-/// The schema-1 run identity for [build]. The native launcher reads these
-/// eight keys in this exact order from `ctr-runtime-run.cfg`.
+/// The run identity for [build], schema 1 unless [schema] says otherwise.
+/// The native launcher reads these eight keys in this exact order from
+/// `ctr-runtime-run.cfg`.
 Map<String, Object> runIdentity(
   CtrBuild build,
   String runId, {
   String environment = 'hardware',
+  int schema = 1,
 }) => {
-  'schema': 1,
+  'schema': schema,
   'run_id': runId,
   'fixture': build.fixture,
   'mode': build.mode.name,
@@ -47,6 +49,11 @@ Map<String, Object> runIdentity(
   'build_id': build.buildId,
   'environment': environment,
 };
+
+/// Writes [identity] as `run.json` in [directory].
+void writeRunRecord(String directory, Map<String, Object> identity) => File(
+  p.join(directory, 'run.json'),
+).writeAsStringSync('${jsonEncode(identity)}\n');
 
 /// The `ctr-runtime-run.cfg` text for [identity].
 String runConfig(Map<String, Object> identity) =>
@@ -79,9 +86,7 @@ Map<String, Object> packageCtrApplication(
     notice.parent.createSync(recursive: true);
     File(sdk.asset(relative)).copySync(notice.path);
   }
-  File(
-    p.join(output.path, 'run.json'),
-  ).writeAsStringSync('${jsonEncode(identity)}\n');
+  writeRunRecord(output.path, identity);
   File(
     p.join(output.path, 'SDROOT/ctr-runtime-run.cfg'),
   ).writeAsStringSync(runConfig(identity));

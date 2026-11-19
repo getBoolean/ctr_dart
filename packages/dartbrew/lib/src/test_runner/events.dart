@@ -39,13 +39,14 @@ List<TestOutput> parseTestOutput(String text) => [
 
 TestOutput _parseLine(String line) {
   if (!line.startsWith(testEventMarker)) return TestText(line);
+  final Object? fields;
   try {
-    final fields = jsonDecode(line.substring(testEventMarker.length));
-    if (fields is Map<String, Object?> && fields['type'] is String) {
-      return TestEvent(fields);
-    }
+    fields = jsonDecode(line.substring(testEventMarker.length));
   } on FormatException {
-    // Kept as text below.
+    return TestText(line);
+  }
+  if (fields is Map<String, Object?> && fields['type'] is String) {
+    return TestEvent(fields);
   }
   return TestText(line);
 }

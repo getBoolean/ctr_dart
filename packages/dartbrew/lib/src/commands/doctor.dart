@@ -1,22 +1,8 @@
 import 'dart:io';
 
-import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
-import 'package:path/path.dart' as p;
 
 import '../sdk.dart';
-
-/// Adds the shared `--sdk` option to [parser].
-void addSdkOption(ArgParser parser) {
-  parser.addOption(
-    'sdk',
-    help: 'SDK directory; defaults to the directory containing dartbrew.',
-  );
-}
-
-/// The SDK directory chosen by an option added with [addSdkOption].
-String sdkDirectory(ArgResults results) =>
-    results.option('sdk') ?? p.dirname(Platform.resolvedExecutable);
 
 class DoctorCommand extends Command<int> {
   @override

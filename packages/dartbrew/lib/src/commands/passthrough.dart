@@ -5,7 +5,6 @@ import 'package:args/command_runner.dart';
 
 import '../process.dart';
 import '../sdk.dart';
-import 'doctor.dart';
 
 /// `dart` commands that run unchanged through the bundled host Dart.
 const passthroughNames = ['pub', 'analyze', 'format', 'fix', 'doc', 'info'];

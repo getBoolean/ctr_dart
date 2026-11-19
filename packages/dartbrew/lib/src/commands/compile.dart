@@ -9,7 +9,6 @@ import '../sdk.dart';
 import '../targets/ctr/package.dart';
 import '../targets/ctr/pipeline.dart';
 import '../targets/target.dart';
-import 'doctor.dart';
 
 /// The `compile` command, for registration in the runner.
 Command<int> compileCommand({ProcessStarter start = startProcess}) =>
@@ -75,7 +74,6 @@ class CompileCommand extends Command<int> {
         usage,
       );
     }
-    // Only one target exists; the option keeps the command shape stable.
     selectedTarget(args);
     final sdk = await NativeSdk.load(sdkDirectory(args));
     final entry = File(args.rest.single).resolveSymbolicLinksSync();

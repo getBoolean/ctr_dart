@@ -69,7 +69,12 @@ final class TestSession {
   int failed = 0;
 
   TestSession(this.renderer, {Duration Function()? elapsed})
-    : elapsed = elapsed ?? (Stopwatch()..start()).elapsedFunction;
+    : elapsed = elapsed ?? _startClock();
+
+  static Duration Function() _startClock() {
+    final clock = Stopwatch()..start();
+    return () => clock.elapsed;
+  }
 
   /// The first event ID not used yet; a generated entrypoint built after
   /// [loadError] calls starts numbering here.
@@ -94,13 +99,7 @@ final class TestSession {
         'type': 'testStart',
         'test': _testFields(testId, 'loading $path', suiteId),
       },
-      {
-        'type': 'error',
-        'testID': testId,
-        'error': 'Failed to load "$path":\n$message',
-        'stackTrace': '',
-        'isFailure': false,
-      },
+      _errorEvent(testId, 'Failed to load "$path":\n$message'),
       _testDone(testId),
     ]) {
       _handle(event, classify: false);
@@ -171,13 +170,7 @@ final class TestSession {
       return;
     }
     for (final test in running) {
-      _handle({
-        'type': 'error',
-        'testID': test.id,
-        'error': reason,
-        'stackTrace': '',
-        'isFailure': false,
-      }, classify: false);
+      _handle(_errorEvent(test.id, reason), classify: false);
       _handle(_testDone(test.id), classify: false);
     }
     final stoppedIn = running.isEmpty ? null : running.first.name;
@@ -199,16 +192,15 @@ final class TestSession {
           'type': 'testStart',
           'test': _testFields(id, name, suiteId),
         }, classify: false);
-        _handle({
-          'type': 'error',
-          'testID': id,
-          'error':
-              'Did not run: the test program stopped'
-              '${stoppedIn == null ? '' : ' during "$stoppedIn"'}'
-              '${runMessage == null ? '.' : ': $runMessage'}',
-          'stackTrace': '',
-          'isFailure': false,
-        }, classify: false);
+        _handle(
+          _errorEvent(
+            id,
+            'Did not run: the test program stopped'
+            '${stoppedIn == null ? '' : ' during "$stoppedIn"'}'
+            '${runMessage == null ? '.' : ': $runMessage'}',
+          ),
+          classify: false,
+        );
         _handle(_testDone(id), classify: false);
       }
     }
@@ -294,6 +286,14 @@ final class TestSession {
     'url': null,
   };
 
+  static Map<String, Object?> _errorEvent(int id, String message) => {
+    'type': 'error',
+    'testID': id,
+    'error': message,
+    'stackTrace': '',
+    'isFailure': false,
+  };
+
   static Map<String, Object?> _testDone(int id) => {
     'type': 'testDone',
     'testID': id,
@@ -301,10 +301,6 @@ final class TestSession {
     'hidden': false,
     'skipped': false,
   };
-}
-
-extension on Stopwatch {
-  Duration elapsedFunction() => elapsed;
 }
 
 /// A `dart test`-style compact report for output that is not a terminal:

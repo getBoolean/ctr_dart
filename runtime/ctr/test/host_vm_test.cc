@@ -23,7 +23,9 @@ int main(int argc, char** argv) {
   ctr::Report report;
   assert(report.Begin(config, journal, program.build));
   fclose(config);
-  char* error = Dart_SetVMFlags(0, nullptr);
+  // One optional VM flag, e.g. --link_natives_lazily to take AOT's native path.
+  const char* flag = getenv("CTR_TEST_VM_FLAG");
+  char* error = flag ? Dart_SetVMFlags(1, &flag) : Dart_SetVMFlags(0, nullptr);
   if (error) { fprintf(stderr, "%s\n", error); free(error); return 1; }
   Dart_InitializeParams params = {};
   params.version = DART_INITIALIZE_PARAMS_CURRENT_VERSION;

@@ -1,5 +1,6 @@
 #include "embedder.h"
 #include "dart_native_api.h"
+#include "unsupported.h"
 #include <cstdlib>
 #include <cstring>
 #if !defined(__3DS__)
@@ -58,6 +59,9 @@ bool Embedder::Bootstrap() {
 #if !defined(DART_PRECOMPILED_RUNTIME)
   if (!Check(Dart_LoadScriptFromKernel(program_.kernel, program_.kernel_size))) return false;
 #endif
+  // An AOT image may omit an unused dart:io; then nothing can call its natives.
+  Dart_Handle io = Library("dart:io");
+  if (!Dart_IsError(io) && !Check(Dart_SetNativeResolver(io, ResolveUnsupported, nullptr))) return false;
   Dart_Handle main = Dart_GetField(Dart_RootLibrary(), String("main"));
   if (!Check(main)) return false;
   Dart_Handle string_type = Dart_GetNonNullableType(Library("dart:core"), String("String"), 0, nullptr);

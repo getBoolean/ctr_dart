@@ -134,4 +134,28 @@ void main() {
       ['info'],
     ]);
   });
+
+  test('without an injected SDK directory, the SDK next to the running '
+      'executable is loaded', () async {
+    // The test runner's directory holds no sdk.json, so a correct default
+    // fails while loading the SDK instead of while choosing its directory.
+    final runner = CommandRunner<int>('dartbrew', 'test');
+    passthroughCommands().forEach(runner.addCommand);
+    final expected = p.join(
+      Directory(
+        p.dirname(Platform.resolvedExecutable),
+      ).resolveSymbolicLinksSync(),
+      'sdk.json',
+    );
+    await expectLater(
+      runner.run(['info']),
+      throwsA(
+        isA<FileSystemException>().having(
+          (e) => p.normalize(e.path ?? ''),
+          'path',
+          p.normalize(expected),
+        ),
+      ),
+    );
+  });
 }

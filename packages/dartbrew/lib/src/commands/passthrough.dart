@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 
 import '../process.dart';
 import '../sdk.dart';
@@ -33,7 +34,7 @@ List<Command<int>> passthroughCommands({
   for (final name in unsupportedNames) _UnsupportedCommand(name),
 ];
 
-String _defaultSdkDirectory() => sdkDirectory(ArgParser().parse(const []));
+String _defaultSdkDirectory() => p.dirname(Platform.resolvedExecutable);
 
 /// Rewrites `help <passthrough command>` to `<command> --help`, so the host
 /// `dart` prints its own help. Returns [arguments] otherwise.

@@ -31,6 +31,25 @@ void main() {
     "Unsupported operation: Can't connect to the test runner.\n"
             'spawnHybridUri() is currently only supported within "dart test".':
         'hybrid tests (spawnHybridUri and spawnHybridCode)',
+    // The launcher's dart:io fallback resolver (runtime/ctr/source/
+    // unsupported.cc) throws UnsupportedError naming the native.
+    'Unsupported operation: Namespace_GetDefault is not supported on CTR '
+            '(dart:io)':
+        'file I/O',
+    'Unsupported operation: Platform_OperatingSystem is not supported on '
+            'CTR (dart:io)\n#0      _ProcessImpl._start':
+        'processes',
+    'Unsupported operation: Platform_NumberOfProcessors is not supported on '
+            'CTR (dart:io)':
+        'platform information (Platform)',
+    'Unsupported operation: Platform_GetVersion is not supported on CTR '
+            '(dart:io)\n#0      _HttpClient._openUrl':
+        'sockets',
+    'SocketException: Failed host lookup\n'
+            '#0      _NativeSynchronousSocket.lookup':
+        'sockets',
+    'Unsupported operation: Foo_Bar is not supported on CTR (dart:io)':
+        'dart:io',
   };
   cases.forEach((text, area) {
     test('"${text.split('\n').first}" is $area', () {

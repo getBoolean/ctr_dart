@@ -72,6 +72,20 @@ void main() {
     );
   });
 
+  test(
+    'without --project-directory the nearest pubspec owns the entry',
+    () async {
+      final project = _project(pubspec: 'name: snake\n');
+      final bin = Directory(p.join(project.root, 'bin'))..createSync();
+      final entry = File(p.join(bin.path, 'main.dart'))
+        ..writeAsStringSync('void main() {}');
+      final sdk = ctrBuildSdk();
+      await _compile(sdk, ['-o', project.output, entry.path]);
+      expect(_stages(project.output).first, 'packages');
+      expect(_json(p.join(project.output, 'run.json'))['fixture'], 'snake');
+    },
+  );
+
   test('missing SDK cannot modify the project or output', () async {
     final project = _project();
     final runner = CommandRunner<int>('dartbrew', '')

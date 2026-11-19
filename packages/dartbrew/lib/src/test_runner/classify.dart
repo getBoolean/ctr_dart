@@ -1,11 +1,14 @@
 /// Maps error text from a test run on CTR to the unsupported API area that
 /// caused it (KTD10).
 ///
-/// The patterns are initial guesses: they come from the Dart VM's error
-/// text for natives that have no resolver (the CTR launcher bootstraps no
-/// `dart:io`), from `dart:ffi` and `dart:isolate` failure messages, and from
-/// `package:test_api`'s own `spawnHybridUri` error. They must be confirmed
-/// against the device check (U1, `docs/ctr-supported-features.md`).
+/// The CTR launcher has no `dart:io` implementation. Its fallback resolver
+/// (`runtime/ctr/source/unsupported.cc`) makes every `dart:io` native throw
+/// `UnsupportedError: <Native> is not supported on CTR (dart:io)`, so the
+/// native's name, plus the stack, identifies the area. The table also keeps
+/// the VM's own unresolved-native text, `dart:ffi` and `dart:isolate`
+/// failure messages, and `package:test_api`'s `spawnHybridUri` error. The
+/// shapes must be confirmed by the device check (U1,
+/// `docs/ctr-supported-features.md`).
 library;
 
 /// One row of [unsupportedAreas]: an area name and the error text that
@@ -50,8 +53,8 @@ final List<UnsupportedArea> unsupportedAreas = [
     RegExp(
       r'\b(Socket_\w+|ServerSocket_\w+|RawSocketOption_\w+|'
       r'InternetAddress_\w+|NetworkInterface_\w+|SecureSocket_\w+|'
-      r'SecurityContext_\w+|_NativeSocket|_RawSocket|_RawServerSocket|'
-      r'_InternetAddress)\b',
+      r'SecurityContext_\w+|_NativeSocket|_NativeSynchronousSocket|'
+      r'_RawSocket|_RawServerSocket|_InternetAddress|_HttpClient)\b',
     ),
   ),
   UnsupportedArea(
@@ -62,6 +65,7 @@ final List<UnsupportedArea> unsupportedAreas = [
     'file I/O',
     RegExp(
       r'\b(File_\w+|Directory_\w+|FileSystemWatcher_\w+|IOService_\w+|'
+      r'Namespace_\w+|'
       r'_File\.|_Directory\.|_RandomAccessFile|_IOService|_Link\.)',
     ),
   ),
@@ -79,6 +83,11 @@ final List<UnsupportedArea> unsupportedAreas = [
       r'\bFfi_\w+|\bDynamicLibrary\b',
     ),
   ),
+  // After the stack-based rows: Process.run and HttpClient reach a
+  // Platform_ native first, and their stacks name the real area.
+  UnsupportedArea('platform information (Platform)', RegExp(r'\bPlatform_\w+')),
+  // Any other native the launcher's dart:io fallback resolver refused.
+  UnsupportedArea('dart:io', RegExp(r'is not supported on CTR \(dart:io\)')),
 ];
 
 /// The area that [text] (an error, a stack trace, or the last output of a

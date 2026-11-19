@@ -80,7 +80,7 @@ class CompileCommand extends Command<int> {
     final sdk = await NativeSdk.load(sdkDirectory(args));
     final entry = File(args.rest.single).resolveSymbolicLinksSync();
     final project = Directory(
-      args.option('project-directory') ?? p.dirname(entry),
+      args.option('project-directory') ?? _owningProject(entry),
     ).resolveSymbolicLinksSync();
     if (!p.isWithin(project, entry)) {
       throw UsageException(
@@ -127,5 +127,18 @@ class CompileCommand extends Command<int> {
       'the SD card, then launch the app from Homebrew Launcher.',
     );
     return 0;
+  }
+}
+
+/// The nearest directory at or above [entry]'s directory that holds a
+/// `pubspec.yaml`, as `dart compile` resolves packages; the entry's own
+/// directory when none does.
+String _owningProject(String entry) {
+  var directory = p.dirname(entry);
+  while (true) {
+    if (File(p.join(directory, 'pubspec.yaml')).existsSync()) return directory;
+    final parent = p.dirname(directory);
+    if (parent == directory) return p.dirname(entry);
+    directory = parent;
   }
 }

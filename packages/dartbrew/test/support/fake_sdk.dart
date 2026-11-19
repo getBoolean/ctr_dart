@@ -33,12 +33,17 @@ class FakeSdk {
 /// `<name> stderr`, and exits with the given code. Start stubs with
 /// [startStub].
 ///
+/// Each entry in [assets] adds a sealed file with the given contents, and
+/// [runtime], when given, becomes the manifest's `runtime` object.
+///
 /// [files] replaces the generated `files` map as-is.
 FakeSdk fakeSdk({
   Object? schema = 1,
   String? host,
   Map<String, String>? files,
   Map<String, int> tools = const {},
+  Map<String, String> assets = const {},
+  Map<String, Object?>? runtime,
 }) {
   final root = Directory.systemTemp.createTempSync('dartbrew-sdk-test-');
   addTearDown(() => root.deleteSync(recursive: true));
@@ -51,6 +56,7 @@ FakeSdk fakeSdk({
   }
 
   seal('bin/tool', payload);
+  assets.forEach(seal);
   final calls = Directory(p.join(root.path, 'calls'))..createSync();
   for (final MapEntry(key: name, value: code) in tools.entries) {
     final log = p.join(calls.path, '$name.json');
@@ -74,6 +80,7 @@ void main(List<String> arguments) {
       'host': host ?? currentHost(),
       'files': files ?? sealed,
       'tools': {for (final name in tools.keys) name: 'tools/$name.dart'},
+      'runtime': ?runtime,
     }),
   );
   return FakeSdk._(root);

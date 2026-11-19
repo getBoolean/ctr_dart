@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:ctr_dart/src/native_elf.dart';
+import 'package:dartbrew/src/native_elf.dart';
 import 'package:test/test.dart';
 
 void main() {

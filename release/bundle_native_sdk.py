@@ -66,7 +66,7 @@ def assemble(cli, precompiler, binutils, runtime, output, version):
     source_asset = output.parent / f'source-ctr-binutils-{version}-{host["host"]}.zip'
     checked(binutils / 'source', arm['source']['archive'], arm['source']['sha256'])
     archive_sdk(binutils / 'source', source_asset)
-    inputs.append((cli, 'ctr' + suffix, True))
+    inputs.append((cli, 'dartbrew' + suffix, True))
     output.mkdir(parents=True)
     for source, name, executable in inputs:
         destination = output / name

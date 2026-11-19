@@ -1,12 +1,12 @@
 import 'dart:io';
 import 'dart:isolate';
-import 'package:ctr_dart/src/native_directory.dart';
+import 'package:dartbrew/src/native_directory.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
   test('exclusive directory creation preserves an existing owner', () {
-    final parent = Directory.systemTemp.createTempSync('ctr directory ');
+    final parent = Directory.systemTemp.createTempSync('dartbrew directory ');
     addTearDown(() => parent.deleteSync(recursive: true));
     final path = p.join(parent.path, 'build');
     createDirectoryExclusively(path);
@@ -20,7 +20,9 @@ void main() {
   });
 
   test('paths with dot segments reserve their normalized directory', () {
-    final parent = Directory.systemTemp.createTempSync('ctr directory dots ');
+    final parent = Directory.systemTemp.createTempSync(
+      'dartbrew directory dots ',
+    );
     addTearDown(() => parent.deleteSync(recursive: true));
     Directory(p.join(parent.path, 'sub')).createSync();
     createDirectoryExclusively(p.join(parent.path, '.', 'sub', '..', 'build'));
@@ -33,7 +35,9 @@ void main() {
   });
 
   test('a relative output resolves against the working directory', () {
-    final parent = Directory.systemTemp.createTempSync('ctr directory rel ');
+    final parent = Directory.systemTemp.createTempSync(
+      'dartbrew directory rel ',
+    );
     final previous = Directory.current;
     addTearDown(() {
       Directory.current = previous;
@@ -45,7 +49,9 @@ void main() {
   });
 
   test('independent callers cannot both reserve the same directory', () async {
-    final parent = Directory.systemTemp.createTempSync('ctr directory race ');
+    final parent = Directory.systemTemp.createTempSync(
+      'dartbrew directory race ',
+    );
     addTearDown(() => parent.deleteSync(recursive: true));
     final path = p.join(parent.path, 'build');
     Future<bool> reserve() => Isolate.run(() {

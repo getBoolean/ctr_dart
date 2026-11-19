@@ -45,8 +45,9 @@ Uint8List encode3dsx(Uint8List elf) {
   }
   final segments = <_Segment>[];
   final programOffset = u32(28), programSize = u16(42);
-  if (programSize < 32)
+  if (programSize < 32) {
     throw const FormatException('Invalid ELF program headers.');
+  }
   final loadFlags = <int>[];
   for (var i = 0; i < u16(44); i++) {
     final at = programOffset + i * programSize;
@@ -54,8 +55,9 @@ Uint8List encode3dsx(Uint8List elf) {
     if (u32(at) != 1) continue;
     final offset = u32(at + 4), size = u32(at + 16), memory = u32(at + 20);
     range(offset, size);
-    if (size > memory)
+    if (size > memory) {
       throw const FormatException('ELF file data exceeds segment memory.');
+    }
     segments.add(
       _Segment(u32(at + 8), memory, elf.sublist(offset, offset + size)),
     );
@@ -95,14 +97,16 @@ Uint8List encode3dsx(Uint8List elf) {
     final section = sectionOffset + i * sectionSize;
     if (u32(section + 4) != 9) continue;
     final targetSection = u32(section + 28);
-    if (targetSection >= sectionCount)
+    if (targetSection >= sectionCount) {
       throw const FormatException('Invalid ELF relocation section.');
+    }
     if (u32(sectionOffset + targetSection * sectionSize + 8) & 2 == 0) continue;
     final offset = u32(section + 16),
         size = u32(section + 20),
         stride = u32(section + 36);
-    if (stride != 8 || size % stride != 0)
+    if (stride != 8 || size % stride != 0) {
       throw const FormatException('Invalid ARM REL table.');
+    }
     range(offset, size);
     for (var entry = offset; entry < offset + size; entry += stride) {
       final place = u32(entry), type = u32(entry + 4) & 255;
@@ -122,8 +126,9 @@ Uint8List encode3dsx(Uint8List elf) {
       final value = data.getUint32(word, Endian.little);
       final absolute = type == 2 || type == 38;
       final relative = const {3, 25, 42, 107}.contains(type);
-      if (!absolute && !relative)
+      if (!absolute && !relative) {
         throw FormatException('Unsupported ARM relocation: $type');
+      }
       var target = value;
       if (relative) {
         var displacement = value;

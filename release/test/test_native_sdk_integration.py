@@ -11,7 +11,7 @@ import unittest
 class NativeSdkIntegration(unittest.TestCase):
     def setUp(self):
         self.sdk = Path(os.environ['CTR_NATIVE_SDK']).resolve()
-        self.cli = self.sdk / ('ctr.exe' if os.name == 'nt' else 'ctr')
+        self.cli = self.sdk / ('dartbrew.exe' if os.name == 'nt' else 'dartbrew')
         retained = os.environ.get('CTR_NATIVE_VERIFY_DIR')
         if retained:
             self.project = Path(tempfile.mkdtemp(prefix='ctr native SDK ', dir=retained))

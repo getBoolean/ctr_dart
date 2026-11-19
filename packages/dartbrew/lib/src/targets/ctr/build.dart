@@ -1,76 +1,17 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+
 import 'package:args/command_runner.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
-import 'native_elf.dart';
-import 'native_directory.dart';
 
-String currentHost() {
-  final os = Platform.operatingSystem;
-  final abi = AbiHost.architecture;
-  return '$os-$abi';
-}
-
-// Platform.version includes the VM's native architecture even in AOT builds.
-abstract final class AbiHost {
-  static String get architecture {
-    final version = Platform.version;
-    if (version.contains('arm64')) return 'arm64';
-    if (version.contains('x64')) return 'x64';
-    throw UnsupportedError('Unsupported host architecture: $version');
-  }
-}
-
-Future<String> fileDigest(File file) async =>
-    (await sha256.bind(file.openRead()).first).toString();
-
-Map<String, dynamic> objectFile(File file) =>
-    jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-
-class NativeSdk {
-  final String root;
-  final Map<String, dynamic> manifest;
-  NativeSdk._(this.root, this.manifest);
-
-  static Future<NativeSdk> load(String directory) async {
-    final root = Directory(directory).resolveSymbolicLinksSync();
-    final sdk = NativeSdk._(root, objectFile(File(p.join(root, 'sdk.json'))));
-    if (sdk.manifest['schema'] != 1 || sdk.manifest['host'] != currentHost()) {
-      throw const FormatException('SDK schema or native host does not match.');
-    }
-    final files = sdk.manifest['files'] as Map<String, dynamic>;
-    if (files.isEmpty) throw const FormatException('SDK has no sealed assets.');
-    for (final entry in files.entries) {
-      final file = File(sdk.asset(entry.key));
-      if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(entry.value as String) ||
-          await fileDigest(file) != entry.value) {
-        throw FormatException('SDK asset hash mismatch: ${entry.key}');
-      }
-    }
-    return sdk;
-  }
-
-  String asset(String relative) {
-    if (p.posix.isAbsolute(relative) ||
-        relative.contains('\\') ||
-        relative.split('/').any((part) => part == '..' || part.isEmpty) ||
-        !(manifest['files'] as Map).containsKey(relative)) {
-      throw FormatException('Invalid SDK asset path: $relative');
-    }
-    final file = File(p.joinAll([root, ...relative.split('/')]));
-    final resolved = file.resolveSymbolicLinksSync();
-    if (!p.isWithin(root, resolved)) {
-      throw FormatException('SDK asset escapes its directory: $relative');
-    }
-    return resolved;
-  }
-
-  Map<String, dynamic> get runtime =>
-      manifest['runtime'] as Map<String, dynamic>;
-  String tool(String name) => asset((manifest['tools'] as Map)[name] as String);
-}
+import '../../commands/doctor.dart';
+import '../../native_directory.dart';
+import '../../native_elf.dart';
+import '../../process.dart';
+import '../../sdk.dart';
+import '../../stage_runner.dart';
 
 String programAssembly(
   String mode,
@@ -101,90 +42,49 @@ ${values.entries.map((e) => '${e.key}:\n.asciz ${jsonEncode(e.value)}').join('\n
 ''';
 }
 
-Future<int> runNativeCli(List<String> arguments) async {
-  if (arguments.length == 1 && arguments.single == '--version') {
-    stdout.writeln(
-      const String.fromEnvironment('CTR_VERSION', defaultValue: 'development'),
-    );
-    return 0;
-  }
-  final runner =
-      CommandRunner<int>(
-          'ctr',
-          'Build Dart homebrew with the bundled native 3DS SDK.',
-        )
-        ..addCommand(_SdkCommand('doctor'))
-        ..addCommand(_SdkCommand('build'));
-  try {
-    return await runner.run(arguments) ?? 0;
-  } on UsageException catch (error) {
-    stderr.writeln('${error.message}\n${error.usage}');
-    return 64;
-  } on FormatException catch (error) {
-    stderr.writeln(error.message);
-    return 65;
-  } on FileSystemException catch (error) {
-    stderr.writeln(error);
-    return 78;
-  } on ProcessException catch (error) {
-    stderr.writeln(error.message);
-    return error.errorCode > 0 ? error.errorCode : 70;
-  }
-}
+/// Compiles and stages a Dart application for the CTR target.
+///
+/// Not registered in the runner; kept as the implementation that the
+/// `compile` command takes over.
+class BuildCommand extends Command<int> {
+  @override
+  String get name => 'build';
+  @override
+  String get description => 'Compile and stage a Dart application.';
+  final ProcessStarter _start;
 
-class _SdkCommand extends Command<int> {
-  @override
-  final String name;
-  @override
-  String get description => name == 'doctor'
-      ? 'Verify the bundled tools and runtime assets.'
-      : 'Compile and stage a Dart application.';
-  _SdkCommand(this.name) {
-    argParser.addOption(
-      'sdk',
-      help: 'SDK directory; defaults to the directory containing ctr.',
-    );
-    if (name == 'build') {
-      argParser
-        ..addOption('mode', allowed: ['aot', 'jit'], defaultsTo: 'aot')
-        ..addOption('output', abbr: 'o')
-        ..addOption('project-directory')
-        ..addFlag(
-          'offline',
-          help: 'Resolve packages using only the local pub cache.',
-        )
-        ..addOption('fixture', defaultsTo: 'app');
-    }
+  BuildCommand({ProcessStarter start = startProcess}) : _start = start {
+    addSdkOption(argParser);
+    argParser
+      ..addOption('mode', allowed: ['aot', 'jit'], defaultsTo: 'aot')
+      ..addOption('output', abbr: 'o')
+      ..addOption('project-directory')
+      ..addFlag(
+        'offline',
+        help: 'Resolve packages using only the local pub cache.',
+      )
+      ..addOption('fixture', defaultsTo: 'app');
   }
 
   @override
   Future<int> run() async {
     final args = argResults!;
-    if (name == 'doctor' && args.rest.isNotEmpty ||
-        name == 'build' &&
-            (args.rest.length != 1 || args.option('output') == null)) {
+    if (args.rest.length != 1 || args.option('output') == null) {
       throw UsageException(
         'Build requires one entrypoint and --output.',
         usage,
       );
     }
-    final sdk = await NativeSdk.load(
-      args.option('sdk') ?? p.dirname(Platform.resolvedExecutable),
-    );
-    if (name == 'doctor') {
-      stdout.writeln(
-        'Verified native SDK for ${currentHost()}; ${(sdk.manifest['files'] as Map).length} assets.',
-      );
-      return 0;
-    }
+    final sdk = await NativeSdk.load(sdkDirectory(args));
     final entry = File(args.rest.single).resolveSymbolicLinksSync();
     final project = Directory(
       args.option('project-directory') ?? p.dirname(entry),
     ).resolveSymbolicLinksSync();
-    if (!p.isWithin(project, entry))
+    if (!p.isWithin(project, entry)) {
       throw const FormatException(
         'Entrypoint must be inside the selected project.',
       );
+    }
     final output = Directory(p.normalize(p.absolute(args.option('output')!)));
     if (FileSystemEntity.typeSync(output.path) !=
         FileSystemEntityType.notFound) {
@@ -201,7 +101,7 @@ class _SdkCommand extends Command<int> {
         'Fixture must contain 1-64 letters, digits, underscores or hyphens.',
       );
     }
-    await _build(
+    await buildApplication(
       sdk,
       entry,
       project,
@@ -209,6 +109,7 @@ class _SdkCommand extends Command<int> {
       args.option('mode')!,
       fixture,
       args.flag('offline'),
+      start: _start,
     );
     stdout.writeln('Built ${p.join(output.path, 'application.3dsx')}');
     stdout.writeln(
@@ -218,56 +119,22 @@ class _SdkCommand extends Command<int> {
   }
 }
 
-Future<void> _build(
+/// Builds [entry] into [output]: application.3dsx, artifact.json, run.json,
+/// the staged SD-card folder, and per-stage logs under `work/`.
+Future<void> buildApplication(
   NativeSdk sdk,
   String entry,
   String project,
   Directory output,
   String mode,
   String fixture,
-  bool offline,
-) async {
+  bool offline, {
+  ProcessStarter start = startProcess,
+}) async {
   output.parent.createSync(recursive: true);
   createDirectoryExclusively(output.path);
   final work = Directory(p.join(output.path, 'work'))..createSync();
-  final commands = <Map<String, dynamic>>[];
-  Future<void> run(
-    String tool,
-    List<String> args,
-    String stage, {
-    String? cwd,
-  }) async {
-    stderr.writeln(stage);
-    final executable = sdk.tool(tool);
-    commands.add({'stage': stage, 'executable': executable, 'arguments': args});
-    File(
-      p.join(work.path, 'commands.json'),
-    ).writeAsStringSync(jsonEncode(commands));
-    final process = await Process.start(
-      executable,
-      args,
-      workingDirectory: cwd ?? work.path,
-      runInShell: false,
-      environment: {'PATH': p.join(sdk.root, 'bin')},
-    );
-    final log = File(p.join(work.path, '$stage.log')).openWrite();
-    await Future.wait([
-      process.stdout.forEach(log.add),
-      process.stderr.forEach((bytes) {
-        log.add(bytes);
-        stderr.add(bytes);
-      }),
-    ]);
-    await log.close();
-    final code = await process.exitCode;
-    if (code != 0)
-      throw ProcessException(
-        executable,
-        args,
-        '$stage failed ($code); see ${p.join(work.path, '$stage.log')}',
-        code,
-      );
-  }
+  final run = StageRunner(sdk, work, start: start);
 
   final packageConfig = File(p.join(project, '.dart_tool/package_config.json'));
   if (File(p.join(project, 'pubspec.yaml')).existsSync()) {

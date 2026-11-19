@@ -82,11 +82,11 @@ def build(precompiler, binutils, runtime, output):
                                    text=True, capture_output=True, check=True)
     codegen = verify_codegen(probe_assembly.read_bytes(), probe['assembly_sha256'], host['host'],
                              (version_probe.stdout + version_probe.stderr).strip())
-    cli = output / ('ctr' + suffix)
-    package = ROOT / 'packages/ctr_dart'
+    cli = output / ('dartbrew' + suffix)
+    package = ROOT / 'packages/dartbrew'
     for arguments in [
         ['pub', 'get', '--enforce-lockfile'], ['analyze'], ['test', '-r', 'expanded'],
-        ['compile', 'exe', '-DCTR_VERSION=' + version, 'bin/ctr.dart', '-o', str(cli)],
+        ['compile', 'exe', '-DDARTBREW_VERSION=' + version, 'bin/dartbrew.dart', '-o', str(cli)],
     ]:
         subprocess.run([str(dart), *arguments], cwd=package, check=True)
     sdk = output / f'ctr-dart-{version}-{host["host"]}'

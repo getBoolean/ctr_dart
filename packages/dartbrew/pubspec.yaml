@@ -1,5 +1,5 @@
-name: ctr_dart
-description: Build Dart programs for the experimental CTR runtime.
+name: dartbrew
+description: Build, run and test Dart programs for homebrew targets.
 version: 0.1.0-preview.3
 publish_to: none
 environment:
@@ -10,6 +10,7 @@ dependencies:
   ffi: 2.2.0
   path: 1.9.1
 dev_dependencies:
+  lints: 6.1.0
   test: 1.33.0
 executables:
-  ctr:
+  dartbrew:

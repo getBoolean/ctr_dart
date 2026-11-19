@@ -57,7 +57,7 @@ def pe_imports(path):
 def audit_sdk(sdk, host, tools):
     sdk = Path(sdk)
     suffix = '.exe' if host.startswith('windows-') else ''
-    candidates = {sdk / ('ctr' + suffix), *[sdk / path for path in tools.values()]}
+    candidates = {sdk / ('dartbrew' + suffix), *[sdk / path for path in tools.values()]}
     for path in (sdk / 'host-dart/bin').rglob('*'):
         if path.is_file() and (path.name in {'dart', 'dartvm', 'dartaotruntime', 'dartcliruntime', 'gen_snapshot'} or path.suffix.lower() == '.exe'):
             candidates.add(path)

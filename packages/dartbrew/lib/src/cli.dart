@@ -2,7 +2,11 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
+import 'commands/compile.dart';
+import 'commands/devices.dart';
 import 'commands/doctor.dart';
+import 'commands/passthrough.dart';
+import 'targets/ctr/netloader.dart';
 
 /// The version injected at compile time with `-DDARTBREW_VERSION=<version>`.
 const version = String.fromEnvironment(
@@ -10,11 +14,19 @@ const version = String.fromEnvironment(
   defaultValue: 'development',
 );
 
-CommandRunner<int> createRunner() => CommandRunner<int>(
-  'dartbrew',
-  'A command-line utility for building, running and testing Dart '
-      'programs on homebrew targets.',
-)..addCommand(DoctorCommand());
+CommandRunner<int> createRunner() {
+  final runner =
+      CommandRunner<int>(
+          'dartbrew',
+          'A command-line utility for building, running and testing Dart '
+              'programs on homebrew targets.',
+        )
+        ..addCommand(compileCommand())
+        ..addCommand(devicesCommand())
+        ..addCommand(DoctorCommand());
+  passthroughCommands().forEach(runner.addCommand);
+  return runner;
+}
 
 /// Runs dartbrew and returns its exit code.
 ///
@@ -25,8 +37,13 @@ Future<int> runCli(List<String> arguments) async {
     stdout.writeln(version);
     return 0;
   }
+  final unsupported = unsupportedInvocationMessage(arguments);
+  if (unsupported != null) {
+    stderr.writeln(unsupported);
+    return 64;
+  }
   try {
-    return await createRunner().run(arguments) ?? 0;
+    return await createRunner().run(forwardHelpArguments(arguments)) ?? 0;
   } on UsageException catch (error) {
     stderr.writeln('${error.message}\n${error.usage}');
     return 64;
@@ -36,6 +53,9 @@ Future<int> runCli(List<String> arguments) async {
   } on FileSystemException catch (error) {
     stderr.writeln(error);
     return 78;
+  } on NetloaderException catch (error) {
+    stderr.writeln(error.message);
+    return 1;
   } on ProcessException catch (error) {
     stderr.writeln(error.message);
     return error.errorCode > 0 ? error.errorCode : 70;

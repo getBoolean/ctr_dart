@@ -24,11 +24,24 @@ class _TargetProbe extends Command<int> {
 }
 
 void main() {
-  test('help lists doctor and uses neutral wording', () async {
+  test('help lists the owned and passthrough commands', () async {
     final help = await invoke(['--help']);
     expect(help.exitCode, 0);
     expect(help.stdout, contains('Usage: dartbrew <command> [arguments]'));
-    expect(help.stdout, contains('doctor'));
+    for (final command in [
+      'compile',
+      'devices',
+      'doctor',
+      'pub',
+      'analyze',
+      'format',
+      'fix',
+      'doc',
+      'info',
+    ]) {
+      expect(help.stdout, contains(command));
+    }
+    expect(help.stdout, isNot(contains('  install')));
     expect(help.stdout, isNot(contains('3DS')));
     expect(help.stderr, isEmpty);
     final doctorHelp = await invoke(['help', 'doctor']);

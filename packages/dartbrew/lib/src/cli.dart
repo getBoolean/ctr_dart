@@ -3,9 +3,11 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 
 import 'commands/compile.dart';
+import 'commands/create.dart';
 import 'commands/devices.dart';
 import 'commands/doctor.dart';
 import 'commands/passthrough.dart';
+import 'commands/run.dart';
 import 'targets/ctr/netloader.dart';
 
 /// The version injected at compile time with `-DDARTBREW_VERSION=<version>`.
@@ -21,7 +23,9 @@ CommandRunner<int> createRunner() {
           'A command-line utility for building, running and testing Dart '
               'programs on homebrew targets.',
         )
+        ..addCommand(createCommand())
         ..addCommand(compileCommand())
+        ..addCommand(runCommand())
         ..addCommand(devicesCommand())
         ..addCommand(DoctorCommand());
   passthroughCommands().forEach(runner.addCommand);

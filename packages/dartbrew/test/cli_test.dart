@@ -29,7 +29,9 @@ void main() {
     expect(help.exitCode, 0);
     expect(help.stdout, contains('Usage: dartbrew <command> [arguments]'));
     for (final command in [
+      'create',
       'compile',
+      'run',
       'devices',
       'doctor',
       'pub',

@@ -57,7 +57,8 @@ void main() {
     await expectLater(
       run('ld', ['-o', 'app.elf'], 'link'),
       throwsA(
-        isA<ProcessException>()
+        isA<StageFailure>()
+            .having((e) => e.stage, 'stage', 'link')
             .having((e) => e.errorCode, 'errorCode', 3)
             .having(
               (e) => e.message,

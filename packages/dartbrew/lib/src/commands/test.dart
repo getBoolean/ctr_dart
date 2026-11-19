@@ -148,13 +148,14 @@ class _TestCommand extends Command<int> {
           fixture: _fixture(project, entry.path),
           onOutput: session.addOutput,
           err: _err,
+          buildDirectory: 'test',
         );
         break;
       } on RunAbort catch (error) {
         _err.writeln(error.message);
         return error.exitCode;
-      } on ProcessException catch (error) {
-        if (checked || !error.message.startsWith('kernel failed')) rethrow;
+      } on StageFailure catch (error) {
+        if (checked || error.stage != 'kernel') rethrow;
         checked = true;
         final failures = await _findLoadErrors(settings, files);
         if (failures.isEmpty) rethrow;

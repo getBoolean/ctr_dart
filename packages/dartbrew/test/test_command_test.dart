@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:dartbrew/src/commands/run.dart';
 import 'package:dartbrew/src/commands/test.dart';
 import 'package:dartbrew/src/device/device.dart';
 import 'package:dartbrew/src/process.dart';
+import 'package:dartbrew/src/stage_runner.dart';
 import 'package:dartbrew/src/targets/ctr/netloader.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -64,20 +66,32 @@ Future<_Result> _test(
   List<String> args, {
   FakeConsole? console,
   ProcessStarter start = startBuildStub,
+  String command = 'test',
 }) async {
   final sdk = ctrBuildSdk();
   final out = StringBuffer();
   final err = StringBuffer();
+  NetloaderClient transport(_) => NetloaderClient(
+    port: console?.port ?? 1,
+    receiveAddress: InternetAddress.loopbackIPv4,
+    broadcastAddress: InternetAddress.loopbackIPv4,
+    interfaceAddresses: () async => [InternetAddress.loopbackIPv4],
+  );
   final runner = CommandRunner<int>('dartbrew', '')
     ..addCommand(
       testCommand(
         start: start,
-        transportFor: (_) => NetloaderClient(
-          port: console?.port ?? 1,
-          receiveAddress: InternetAddress.loopbackIPv4,
-          broadcastAddress: InternetAddress.loopbackIPv4,
-          interfaceAddresses: () async => [InternetAddress.loopbackIPv4],
-        ),
+        transportFor: transport,
+        listenAddress: InternetAddress.loopbackIPv4,
+        deadlines: _deadlines,
+        out: out,
+        err: err,
+      ),
+    )
+    ..addCommand(
+      runCommand(
+        start: start,
+        transportFor: transport,
         listenAddress: InternetAddress.loopbackIPv4,
         deadlines: _deadlines,
         out: out,
@@ -85,7 +99,7 @@ Future<_Result> _test(
       ),
     );
   final code = await runner.run([
-    'test',
+    command,
     '--sdk',
     sdk.root.path,
     '--project-directory',
@@ -283,13 +297,45 @@ void main() {
     await expectLater(
       _test(project, [], start: _failingKernelFor('dartbrew_test.dart')),
       throwsA(
-        isA<ProcessException>().having(
-          (e) => e.message,
-          'message',
-          startsWith('kernel failed'),
-        ),
+        isA<StageFailure>()
+            .having((e) => e.stage, 'stage', 'kernel')
+            .having((e) => e.message, 'message', startsWith('kernel failed')),
       ),
     );
+  });
+
+  test('test and run build into separate directories, so neither deletes '
+      "the other's build", () async {
+    final project = _project({
+      'test/a_test.dart': _testFile,
+      'bin/main.dart': 'void main() {}',
+    });
+    final testApp = File(
+      p.join(
+        project,
+        '.dart_tool/dartbrew/test/ctr/jit/dartbrew-hello-test-jit.3dsx',
+      ),
+    );
+    final runApp = File(
+      p.join(
+        project,
+        '.dart_tool/dartbrew/run/ctr/jit/dartbrew-hello-jit.3dsx',
+      ),
+    );
+
+    Future<void> build(String command) async {
+      final console = await _console(RecordedStream.passing(1));
+      final r = await _test(project, [], console: console, command: command);
+      expect(r.code, 0, reason: r.err);
+    }
+
+    await build('test');
+    expect(testApp.existsSync(), isTrue);
+    await build('run');
+    expect(runApp.existsSync(), isTrue);
+    expect(testApp.existsSync(), isTrue, reason: 'run kept the test build');
+    await build('test');
+    expect(runApp.existsSync(), isTrue, reason: 'test kept the run build');
   });
 
   test('no test files exits 79', () async {

@@ -109,7 +109,7 @@ ${values.entries.map((e) => '${e.key}:\n.asciz ${jsonEncode(e.value)}').join('\n
 /// `kernel`, `snapshot` (AOT only), `assemble-payload`, `assemble-program`
 /// and `link` stages with the SDK's tools. Intermediate files, per-stage logs
 /// and `commands.json` go into [work], which must already exist. A failed
-/// stage throws a [ProcessException] and [application] is not written.
+/// stage throws a [StageFailure] and [application] is not written.
 ///
 /// The application carries the project's title, description and icon (see
 /// [readAppMetadata]); these are read before any stage runs, and metadata

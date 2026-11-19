@@ -6,11 +6,25 @@ import 'package:path/path.dart' as p;
 import 'process.dart';
 import 'sdk.dart';
 
+/// A build stage that exited non-zero: [stage] names it, [message] names its
+/// log and [errorCode] is the tool's exit code.
+final class StageFailure extends ProcessException {
+  final String stage;
+
+  const StageFailure(
+    super.executable,
+    super.arguments,
+    this.stage,
+    super.message,
+    super.errorCode,
+  );
+}
+
 /// Runs SDK tools as named build stages.
 ///
 /// Every stage is appended to `work/commands.json` before it starts, and its
 /// output is written to `work/<stage>.log`. Standard error is also echoed to
-/// [progress]. A stage that exits non-zero throws a [ProcessException] that
+/// [progress]. A stage that exits non-zero throws a [StageFailure] that
 /// names the stage and its log.
 class StageRunner {
   final NativeSdk sdk;
@@ -59,9 +73,10 @@ class StageRunner {
     await log.close();
     final code = await process.exitCode;
     if (code != 0) {
-      throw ProcessException(
+      throw StageFailure(
         executable,
         args,
+        stage,
         '$stage failed ($code); see ${p.join(work.path, '$stage.log')}',
         code,
       );

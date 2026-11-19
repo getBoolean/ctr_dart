@@ -132,6 +132,42 @@ Future<void> _keepalives(FakeLauncher app, Duration limit) async {
   }
 }
 
+/// Starts a fake console and its discovery responder on one port number,
+/// TCP and UDP, as a real netloader uses.
+///
+/// The UDP port is allocated first and the console takes the same number for
+/// TCP. Windows can refuse that (errno 10013) when the number falls in a
+/// range reserved for TCP only, such as Hyper-V's excluded port ranges, so a
+/// refused number is held open until the end, making the next allocation
+/// pick a different one, and the next number is tried.
+Future<FakeConsole> _discoverableConsole(
+  int replyPort,
+  LauncherScript script,
+) async {
+  final refused = <RawDatagramSocket>[];
+  try {
+    for (var attempt = 1; ; attempt++) {
+      final responder = await fakeDiscoveryResponder(replyPort);
+      try {
+        final console = await FakeConsole.start(
+          script: script,
+          port: responder.port,
+        );
+        addTearDown(console.close);
+        addTearDown(responder.close);
+        return console;
+      } on SocketException {
+        refused.add(responder);
+        if (attempt == 1000) rethrow;
+      }
+    }
+  } finally {
+    for (final socket in refused) {
+      socket.close();
+    }
+  }
+}
+
 /// Emits fixed addresses, standing in for several consoles answering.
 final class _FixedDiscovery implements DeviceTransport {
   final List<String> addresses;
@@ -307,12 +343,7 @@ void main() {
 
   test('a console found by discovery receives the upload', () async {
     final replyPort = await _freeUdpPort();
-    final console = await _console(_passing);
-    final responder = await fakeDiscoveryResponder(
-      replyPort,
-      port: console.port,
-    );
-    addTearDown(responder.close);
+    final console = await _discoverableConsole(replyPort, _passing);
 
     final r = await _run(
       _loopbackClient(port: console.port, replyPort: replyPort),

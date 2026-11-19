@@ -256,9 +256,11 @@ final class DeviceRunner {
   }) : listenAddress = listenAddress ?? InternetAddress.anyIPv4;
 
   /// Verifies the SDK, builds [entry] (inside [DeviceRunSettings.project])
-  /// into `.dart_tool/dartbrew/run/<target>/<mode>/` of the project, binds
-  /// the host listener, chooses the device, then launches and streams the
-  /// app, passing each output record's text to [onOutput].
+  /// into `.dart_tool/dartbrew/<buildDirectory>/<target>/<mode>/` of the
+  /// project (emptied first), binds the host listener, chooses the device,
+  /// then launches and streams the app, passing each output record's text to
+  /// [onOutput]. Each command passes its own [buildDirectory] (`run`,
+  /// `test`) so one command's build never deletes another's.
   ///
   /// The application is named `dartbrew-<fixture>-<mode>.3dsx` so repeated
   /// runs overwrite it on the SD card. [fixture] defaults to [fixtureFor].
@@ -272,6 +274,7 @@ final class DeviceRunner {
     String? fixture,
     required void Function(String text) onOutput,
     required StringSink err,
+    String buildDirectory = 'run',
   }) async {
     ({String executable, String sdmc, AzaharHost host})? azahar;
     if (settings.azahar) {
@@ -296,7 +299,7 @@ final class DeviceRunner {
         project,
         '.dart_tool',
         'dartbrew',
-        'run',
+        buildDirectory,
         settings.target.name,
         mode.name,
       ),

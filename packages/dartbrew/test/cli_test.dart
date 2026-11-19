@@ -32,6 +32,7 @@ void main() {
       'create',
       'compile',
       'run',
+      'test',
       'devices',
       'doctor',
       'pub',

@@ -8,6 +8,7 @@ import 'commands/devices.dart';
 import 'commands/doctor.dart';
 import 'commands/passthrough.dart';
 import 'commands/run.dart';
+import 'commands/test.dart';
 import 'targets/ctr/netloader.dart';
 
 /// The version injected at compile time with `-DDARTBREW_VERSION=<version>`.
@@ -26,6 +27,7 @@ CommandRunner<int> createRunner() {
         ..addCommand(createCommand())
         ..addCommand(compileCommand())
         ..addCommand(runCommand())
+        ..addCommand(testCommand())
         ..addCommand(devicesCommand())
         ..addCommand(DoctorCommand());
   passthroughCommands().forEach(runner.addCommand);

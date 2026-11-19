@@ -4,7 +4,7 @@ BUILD ?=
 VM_BUILD ?=
 CXX ?= g++
 HOST_FLAGS = -std=c++20 -Wall -Wextra -Werror -pthread -Isource
-SOURCES = source/embedder.cc source/lifecycle.cc source/timer_worker.cc source/report.cc
+SOURCES = source/embedder.cc source/lifecycle.cc source/timer_worker.cc source/report.cc source/link.cc
 
 .PHONY: host-test host-vm check-build native-objects
 check-build:

@@ -27,6 +27,19 @@ class JournalTest(unittest.TestCase):
     def test_current_run(self):
         self.check(self.records, 'pass')
 
+    def test_begin_schema_one_and_two(self):
+        for schema in (1, 2):
+            self.identity['schema'] = schema
+            self.records[0]['schema'] = schema
+            self.check(self.records, 'pass')
+        # Socket keepalives are bare newlines between records.
+        journal = '\n\n'.join(results.PREFIX + json.dumps(record) for record in self.records)
+        self.assertEqual(results.validate(journal, self.identity)['outcome'], 'pass')
+        self.records[0]['schema'] = 1
+        self.check(self.records)
+        self.identity['schema'] = self.records[0]['schema'] = 3
+        self.check(self.records)
+
     def test_stale_truncated_duplicate_contradictory(self):
         for count in range(len(self.records)):
             self.check(self.records[:count])

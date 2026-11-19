@@ -1,9 +1,12 @@
 #include <3ds.h>
+#include <arpa/inet.h>
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include "embedder.h"
 #include "input.h"
+#include "link.h"
 #include "vm/os.h"
 #include "vm/os_thread.h"
 
@@ -32,16 +35,32 @@ bool Entropy(uint8_t* buffer, intptr_t length) {
   return dart::OS::GetEntropy(buffer, length);
 }
 }
-int main() {
+int main(int argc, char** argv) {
   gfxInitDefault();
   consoleInit(GFX_TOP, nullptr);
   Result filesystem = fsInit();
   if (R_FAILED(filesystem)) { gfxExit(); return 1; }
   Run run;
-  FILE* config = fopen("sdmc:/ctr-runtime-run.cfg", "r");
+  // libctru's default argv setup moved the netloader's trailing host token into
+  // __3dslink_host (zero for SD-card and Azahar launches).
+  uint8_t link_host[4];
+  memcpy(link_host, &__3dslink_host.s_addr, sizeof(link_host));
+  ctr::RunConfig identity;
+  ctr::ArgIdentity from_args = ctr::ReadArgs(argc, argv, ctr_program.build, link_host, &identity);
+  bool identified = from_args == ctr::ArgIdentity::ok;
+  if (from_args == ctr::ArgIdentity::absent) {
+    FILE* config = fopen("sdmc:/ctr-runtime-run.cfg", "r");
+    identified = ctr::ReadConfig(config, &identity);
+    if (config) fclose(config);
+  }
+  // Connect before begin so every record reaches the host; a connect failure is
+  // reported as the first output record once begin has succeeded.
+  ctr::Link link;
+  std::string link_error;
+  if (identified && identity.host && link.Open(identity.address, identity.port, &link_error))
+    run.report.Attach(&link);
   FILE* journal = fopen("sdmc:/ctr-runtime.log", "a");
-  bool began = run.report.Begin(config, journal, ctr_program.build);
-  if (config) fclose(config);
+  bool began = identified && run.report.Begin(identity, journal, ctr_program.build, link_error);
   bool initialized = false, cleanup = true;
   ctr::Input input;
   if (began) {
@@ -77,7 +96,12 @@ int main() {
         run.report.Output("application runner creation failed");
       } else {
         bool input_lost = false;
+        u64 keepalive = osGetTime();
         while (!run.done.load(std::memory_order_acquire)) {
+          if (osGetTime() - keepalive >= 2000) {
+            run.report.Keepalive();
+            keepalive = osGetTime();
+          }
           if (!aptMainLoop()) run.runner.RequestStop();
           else if (!input_lost) {
             u32 keys = 0;
@@ -99,6 +123,9 @@ int main() {
     input.Stop();
     run.outcome = run.report.End(run.outcome, cleanup);
   }
+  // The terminal record is already flushed: close the socket, socExit, free.
+  run.report.Attach(nullptr);
+  link.Close();
   if (journal && fclose(journal)) run.outcome = ctr::Outcome::fail;
   fsExit();
   gfxExit();

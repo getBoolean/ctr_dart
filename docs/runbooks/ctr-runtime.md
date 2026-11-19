@@ -87,6 +87,53 @@ Outcomes are `pass`, `fail` or `incomplete`. A journal without a begin, cleanup
 assertion or terminal record is incomplete. A host-observed crash never
 qualifies as a pass. Prepare a fresh run for every launch.
 
+## Launcher contract (schema 2)
+
+The launcher takes its run identity from netloader argv when any argv entry
+starts with `--ctr-`; otherwise it reads `sdmc:/ctr-runtime-run.cfg`. Malformed
+argv identity never falls back to the cfg file: the launcher writes no records
+and exits 1.
+
+**Cfg file.** Eight `key=value` lines in this order, each ending in a newline:
+`schema`, `run_id`, `fixture`, `mode`, `compatibility`, `artifact_sha256`,
+`build_id`, `environment`. Schema `1` allows nothing after them. Schema `2`
+allows one more line, `host=<a>.<b>.<c>.<d>:<port>` (dotted-decimal IPv4 with
+octets 0-255, port 1-65535, no spaces, newline-terminated), and nothing after
+it. Any other ninth line is rejected.
+
+**Argv tokens.** Each is one argv entry; order is free and each may appear once.
+
+| Token | Required | Value |
+| --- | --- | --- |
+| `--ctr-run=schema=2` | yes | always `2` |
+| `--ctr-run=run_id=<32 hex>` | yes | lowercase hex |
+| `--ctr-run=artifact_sha256=<64 hex>` | yes | lowercase hex |
+| `--ctr-run=environment=<hardware\|azahar\|host>` | yes | |
+| `--ctr-run=fixture=<name>` | no | must equal the linked value |
+| `--ctr-run=mode=<aot\|jit>` | no | must equal the linked value |
+| `--ctr-run=compatibility=<64 hex>` | no | must equal the linked value |
+| `--ctr-run=build_id=<64 hex>` | no | must equal the linked value |
+| `--ctr-host-port=<1-65535>` | no | host listener port |
+
+Omitted optional keys take the values linked into the application. Unknown
+`--ctr-` tokens and repeated keys are rejected; entries without the `--ctr-`
+prefix are ignored. The netloader appends `<8 hex>_3DSLINK_` after these
+tokens; libctru's default argv setup removes it and stores the address in
+`__3dslink_host`. The host is that address plus `--ctr-host-port`; without
+either, the run has no socket.
+
+**Socket output.** With a host, the launcher allocates a 1 MiB, 0x1000-aligned
+buffer, calls `socInit` and connects over TCP before `begin`. Every
+`CTR_RUNTIME` line then goes to the socket as well as the screen and journal,
+and a bare `\n` keepalive goes to the socket only, every 2 seconds while the
+program runs. After the terminal record the launcher shuts the socket down,
+closes it, calls `socExit` and frees the buffer. If the connection fails, the
+run continues without the socket and the failure text is the first `output`
+record after `begin`. A failed socket write drops the socket for the rest of
+the run without failing it. Without a host the launcher behaves as with schema
+1. The `begin` record carries the schema that was read (`1` or `2`), and
+`results.py` accepts only those two values.
+
 ## Host checks
 
 ```sh
@@ -110,8 +157,8 @@ Run its checks with the pinned Dart from the Compose service, keeping
 `PUB_CACHE` on `/state`:
 
 ```powershell
-docker compose exec -T -e PUB_CACHE=/state/pub-cache -w /work/packages/ctr_dart toolchain /state/sdk/tools/sdks/dart-sdk/bin/dart pub get --enforce-lockfile
-docker compose exec -T -e PUB_CACHE=/state/pub-cache -w /work/packages/ctr_dart toolchain /state/sdk/tools/sdks/dart-sdk/bin/dart test
+docker compose exec -T -e PUB_CACHE=/state/pub-cache -w /work/packages/dartbrew toolchain /state/sdk/tools/sdks/dart-sdk/bin/dart pub get --enforce-lockfile
+docker compose exec -T -e PUB_CACHE=/state/pub-cache -w /work/packages/dartbrew toolchain /state/sdk/tools/sdks/dart-sdk/bin/dart test
 ```
 
 File/network I/O, public isolates and FFI/native packages are required by the

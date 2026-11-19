@@ -225,19 +225,21 @@ final class NetloaderClient implements DeviceTransport {
     }
     socket.done.ignore();
     final reader = _Reader(socket);
-    final lost = NetloaderException(
-      'Lost the connection to the console at $where during the upload.',
+    var stage = 'sending the file name';
+    NetloaderException lost([String? cause]) => NetloaderException(
+      'Lost the connection to the console at $where while $stage'
+      '${cause == null ? '' : ' ($cause)'}.',
     );
     // Each step must make progress within ackTimeout, so a console that
     // stops answering without closing the connection cannot hang the upload.
     Future<void> step(Future<void> future) =>
-        future.timeout(ackTimeout, onTimeout: () => throw lost);
+        future.timeout(ackTimeout, onTimeout: () => throw lost('timed out'));
     Future<void> ack() async {
       final code = await reader.int32().timeout(
         ackTimeout,
-        onTimeout: () => throw lost,
+        onTimeout: () => throw lost('timed out'),
       );
-      _checkAck(code ?? (throw lost), where);
+      _checkAck(code ?? (throw lost('connection closed')), where);
     }
 
     try {
@@ -247,23 +249,27 @@ final class NetloaderClient implements DeviceTransport {
         ..add(nameBytes)
         ..add(_int32(data.length));
       await step(socket.flush());
+      stage = 'waiting for the console to accept the file';
       await ack();
 
+      stage = 'sending the app';
       for (final frame in compressedFrames(data)) {
         socket
           ..add(_int32(frame.length))
           ..add(frame);
         await step(socket.flush());
       }
+      stage = 'waiting for the console to save the app';
       await ack();
 
+      stage = 'sending the launch arguments';
       socket
         ..add(_int32(argv.length))
         ..add(argv);
       await step(socket.flush());
       await step(socket.close());
-    } on SocketException {
-      throw lost;
+    } on SocketException catch (error) {
+      throw lost(error.osError?.message ?? error.message);
     } finally {
       await reader.cancel();
       socket.destroy();

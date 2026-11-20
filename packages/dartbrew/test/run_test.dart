@@ -182,6 +182,7 @@ final class _FixedDiscovery implements DeviceTransport {
     InternetAddress device,
     File app, {
     List<String> arguments = const [],
+    void Function(int sent, int total)? onProgress,
   }) => throw StateError('no upload expected');
 }
 

@@ -104,6 +104,28 @@ void main() {
       expect(got.frameLengths, everyElement(lessThanOrEqualTo(16 * 1024)));
     });
 
+    test('reports progress after each frame, ending at the total', () async {
+      final netloader = await FakeNetloader.start();
+      addTearDown(netloader.close);
+      final random = Random(2);
+      final bytes = Uint8List.fromList([
+        for (var i = 0; i < 40 * 1024; i++) random.nextInt(256),
+      ]);
+      final reports = <(int, int)>[];
+
+      await loopbackClient(port: netloader.port).upload(
+        InternetAddress.loopbackIPv4,
+        app(bytes),
+        onProgress: (sent, total) => reports.add((sent, total)),
+      );
+      final got = await netloader.upload;
+      final total = got.frameLengths.fold<int>(0, (a, b) => a + b);
+
+      expect(reports, hasLength(got.frameLengths.length));
+      expect(reports.map((r) => r.$2), everyElement(total));
+      expect(reports.last.$1, total);
+    });
+
     for (final (stage, behavior) in [
       ('file', const FakeBehavior(firstAck: -2)),
       ('write', const FakeBehavior(secondAck: -1)),

@@ -38,6 +38,7 @@ final class _FakeTransport implements DeviceTransport {
     InternetAddress device,
     File app, {
     List<String> arguments = const [],
+    void Function(int sent, int total)? onProgress,
   }) => throw const _Reached('upload');
 }
 

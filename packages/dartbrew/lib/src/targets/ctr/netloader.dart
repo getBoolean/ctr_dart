@@ -69,7 +69,9 @@ final class NetloaderClient implements DeviceTransport {
   /// How long [upload] waits for the console to accept the connection.
   final Duration connectTimeout;
 
-  /// How long [upload] waits for each acknowledgement from the console.
+  /// How long [upload] waits for each acknowledgement or write to make
+  /// progress. The console can pause for several seconds while it saves a
+  /// large app to its SD card, so this is generous.
   final Duration ackTimeout;
 
   NetloaderClient({
@@ -79,7 +81,7 @@ final class NetloaderClient implements DeviceTransport {
     InternetAddress? broadcastAddress,
     this.interfaceAddresses = ipv4InterfaceAddresses,
     this.connectTimeout = const Duration(seconds: 15),
-    this.ackTimeout = const Duration(seconds: 10),
+    this.ackTimeout = const Duration(seconds: 60),
   }) : receiveAddress = receiveAddress ?? InternetAddress.anyIPv4,
        broadcastAddress =
            broadcastAddress ?? InternetAddress('255.255.255.255');
@@ -207,6 +209,7 @@ final class NetloaderClient implements DeviceTransport {
     InternetAddress console,
     File app, {
     List<String> arguments = const [],
+    void Function(int sent, int total)? onProgress,
   }) async {
     final name = p.basename(app.path);
     final argv = encodeArgv(['sdmc:/3ds/$name', ...arguments]);
@@ -253,11 +256,16 @@ final class NetloaderClient implements DeviceTransport {
       await ack();
 
       stage = 'sending the app';
-      for (final frame in compressedFrames(data)) {
+      final frames = compressedFrames(data);
+      final total = frames.fold<int>(0, (sum, frame) => sum + frame.length);
+      var sent = 0;
+      for (final frame in frames) {
         socket
           ..add(_int32(frame.length))
           ..add(frame);
         await step(socket.flush());
+        sent += frame.length;
+        onProgress?.call(sent, total);
       }
       stage = 'waiting for the console to save the app';
       await ack();

@@ -32,7 +32,11 @@ final class ConsoleDevice implements RunDevice {
   final DeviceTransport transport;
   final InternetAddress address;
 
-  ConsoleDevice(this.transport, this.address);
+  /// Where upload progress is reported; standard error by default.
+  final StringSink progress;
+
+  ConsoleDevice(this.transport, this.address, {StringSink? progress})
+    : progress = progress ?? stderr;
 
   @override
   String get environment => 'hardware';
@@ -50,7 +54,23 @@ final class ConsoleDevice implements RunDevice {
         address,
         app,
         arguments: launcherArguments(identity, hostPort),
+        onProgress: _reportProgress(),
       );
+
+  /// Reports each further tenth of the upload, since a large app can take
+  /// minutes on console Wi-Fi.
+  void Function(int, int) _reportProgress() {
+    var reported = 0;
+    return (sent, total) {
+      final tenths = total == 0 ? 10 : sent * 10 ~/ total;
+      if (tenths <= reported) return;
+      reported = tenths;
+      String mb(int bytes) => (bytes / (1024 * 1024)).toStringAsFixed(1);
+      progress.writeln(
+        'Uploaded ${tenths * 10}% (${mb(sent)} of ${mb(total)} MB).',
+      );
+    };
+  }
 
   @override
   Future<void> dispose() async {}

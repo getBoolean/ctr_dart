@@ -72,7 +72,7 @@ final List<UnsupportedArea> unsupportedAreas = [
   UnsupportedArea(
     'isolates',
     RegExp(
-      r'IsolateSpawnException|Unable to spawn isolate|'
+      r'IsolateSpawnException|Unable to spawn isolate|Isolate\.spawn|'
       r'\bIsolate_spawn\w*',
     ),
   ),

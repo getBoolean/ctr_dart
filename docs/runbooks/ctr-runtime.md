@@ -62,7 +62,7 @@ graphs with `build_sdk.py build`, a producer exports and archives the target
 assets in the Compose service:
 
 ```sh
-python3 release/freeze_runtime.py --source /state/sdk --build-root /state/sdk/out/ctr --output <new-runtime-dir>
+python3 release/freeze_runtime.py --source /state/sdk --build-root /state/build --output <new-runtime-dir>
 python3 release/archive_runtime.py --runtime <new-runtime-dir> --output <new-dir>/ctr-runtime-assets.zip --probe-kernel <kernel.dill> --precompiler <reference-gen_snapshot>
 ```
 

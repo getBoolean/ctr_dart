@@ -27,6 +27,8 @@ void main() {
         'stdout, stdin and exit()',
     'IsolateSpawnException: Unable to spawn isolate: no isolate group':
         'isolates',
+    // Observed on a New 3DS (AOT and JIT).
+    'Unsupported operation: Isolate.spawn': 'isolates',
     "Invalid argument(s): Failed to load dynamic library 'libx.so'": 'FFI',
     "Unsupported operation: Can't connect to the test runner.\n"
             'spawnHybridUri() is currently only supported within "dart test".':

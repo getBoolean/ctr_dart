@@ -19,41 +19,35 @@ exact-artifact passes, each with successful cleanup and a terminal pass.
 | Flutter | Planned after universal Dart compatibility | No Flutter engine rendering or application qualification |
 | Other Nintendo targets | Research scope only | Original 3DS, DS/DS Lite, Switch and Switch 2 are unqualified |
 
-## Unsupported API failure shapes (pending device check)
+## Unsupported API failure shapes
 
 `dart:io` has no CTR implementation. The launcher attaches a fallback native
 resolver to `dart:io`, so calling any of it (files, directories, sockets,
 processes, stdout/stdin, `exit()`, `sleep()`, `Platform`, `HttpClient`) throws
 a catchable `UnsupportedError` with the text `Unsupported operation:
-<NativeName> is not supported on CTR (dart:io)`, for example
-`Namespace_GetDefault` for file access or `Process_Exit` for `exit()`. The run
-continues, and `dartbrew test` reports an uncaught one as a failed test naming
-the area. This was verified on a host VM, including AOT's lazy native linking;
-the device check below confirms it on CTR.
+<NativeName> is not supported on CTR (dart:io)`. The run continues, and
+`dartbrew test` reports an uncaught one as a failed test naming the area.
 
-How calls into unsupported areas fail on CTR has not been observed yet. The
-table is filled in from the device check; until then every cell is pending.
+Observed on a New 3DS on 2026-11-19 with `test/programs/unsupported_apis.dart`,
+run through `dartbrew run` with the schema-2 launcher. AOT and JIT behaved the
+same. Azahar was not run.
 
-| Area | Console (AOT/JIT) | Azahar (AOT/JIT) |
+| Area | Console (AOT and JIT) | Azahar |
 | --- | --- | --- |
-| File read | pending | pending |
-| Socket connect | pending | pending |
-| `Process.run` | pending | pending |
-| `Isolate.spawn` | pending | pending |
-| `DynamicLibrary.open` (FFI) | pending | pending |
-| `stdout.write` | pending | pending |
-| `exit` | pending | pending |
-| `package:test_api` probe loads and runs | pending | pending |
+| File read | Catchable `UnsupportedError`: `Namespace_GetDefault` | not run |
+| Socket connect | Catchable `UnsupportedError`: `InternetAddress_Parse` | not run |
+| `Process.run` | Catchable `UnsupportedError`: `Platform_OperatingSystem` | not run |
+| `Isolate.spawn` | Catchable `UnsupportedError`: `Isolate.spawn` | not run |
+| `DynamicLibrary.open` (FFI) | Catchable `ArgumentError`: loading dynamic libraries is not supported | not run |
+| `stdout.write` | Catchable `UnsupportedError`: `File_GetStdioHandleType` | not run |
+| `exit` | `UnsupportedError`: `Process_Exit`. Uncaught, so the run ends as fail with a full stack trace | not run |
+| `package:test` files with `dartbrew test` | Run and report per test (AOT). A JIT test app of 18.9 MB failed to upload over console Wi-Fi | not run |
 
-Procedure: build `test/programs/unsupported_apis.dart` and
-`test/projects/test_probe` (with `--project-directory`) with the current CLI in
-both JIT and AOT, then run each build on a New 3DS and in Azahar using the
-SD-card flow. For each area, record whether the call throws a catchable error
-(with its type and message), aborts the isolate, or kills the VM; the last
-`try:<area>` line printed attributes a VM kill. For the probe, record whether it
-loads, whether it prints `probe:passes:passed`, `probe:fails:failed` and
-`probe:done`, and its peak memory in JIT and AOT with 1 MiB reserved for the
-socket buffer.
+Known issue: CTR has no `Uri.base`, so failing tests report "stack trace
+unavailable". After a failing test, the test app stays on the console for about
+30 s before exiting: test_api's timeout timer is not cancelled when its
+stack-trace cleanup fails. Results are reported correctly when the device sends
+`done`. Giving the CTR platform a `Uri.base` is the fix.
 
 ## Reproducibility and evidence
 

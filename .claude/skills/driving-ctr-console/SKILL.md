@@ -10,7 +10,7 @@ The console runs Luma3DS. Rosalina's **InputRedirection** accepts button presses
 ## Prerequisites the user must provide once
 
 - The console's IP address (shown on the Homebrew Launcher netloader screen, or in Rosalina).
-- InputRedirection on: Rosalina menu (L + Down + Select) -> Miscellaneous options -> InputRedirection. **It turns off after a reboot or sleep and has to be turned on again.**
+- InputRedirection on: Rosalina menu (L + Down + Select) -> Miscellaneous options -> InputRedirection. **It turns off after a reboot, a sleep or a Wi-Fi reconnect, and sometimes after an app run.** Verify arming before every upload (Y, then `dartbrew devices`). Stop and ask the user to re-enable it when presses stop landing; don't keep uploading.
 - Homebrew Launcher open on the console (the netloader is part of it).
 - Windows Firewall allowing the dartbrew executable inbound on TCP and UDP 17491. Windows creates **Block** rules automatically the first time a new exe listens; a moved or rebuilt SDK path gets new rules. Check with `Get-NetFirewallRule -DisplayName dartbrew`.
 

@@ -372,7 +372,33 @@ void main() {
     expect(cfg.first, 'schema=2');
     expect(cfg[7], 'environment=azahar');
     expect(cfg.last, 'host=127.0.0.1:${r.hostPort}');
-    expect(p.basename(azahar.appArgument), 'dartbrew-hello-jit.3dsx');
+    expect(cfg[3], 'mode=aot');
+    expect(p.basename(azahar.appArgument), 'dartbrew-hello-aot.3dsx');
+  });
+
+  test('--mode jit in Azahar is a usage error before building, because JIT '
+      'needs Luma3DS', () async {
+    final dir = _temp();
+    final sdmc = p.join(dir.path, 'sdmc');
+    final azahar = FakeAzahar.create(
+      dir,
+      sdmc: sdmc,
+      mode: FakeAzaharMode.socket,
+    );
+    await expectLater(
+      _run(
+        ['--azahar', azahar.script.path, '--mode', 'jit'],
+        environment: {'DARTBREW_AZAHAR_SDMC': sdmc},
+      ),
+      throwsA(
+        isA<UsageException>().having(
+          (e) => e.message,
+          'message',
+          allOf(contains('JIT needs Luma3DS'), contains('--mode aot')),
+        ),
+      ),
+    );
+    expect(Directory(sdmc).existsSync(), isFalse);
   });
 
   test('a fake Azahar that never connects falls back to the journal, '

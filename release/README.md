@@ -51,7 +51,7 @@ folder. `dartbrew help <command>` lists every option.
 | `dartbrew doctor` | Verifies every bundled tool and runtime asset. |
 | `dartbrew create <directory>` | Creates a console-app project that builds, runs and tests without edits. |
 | `dartbrew compile` | Builds an app and a ready-to-copy SD card folder. AOT by default. |
-| `dartbrew run` | Builds the project, starts it on a device and streams its output. JIT by default. |
+| `dartbrew run` | Builds the project, starts it on a device and streams its output. JIT by default on a console, AOT in Azahar. |
 | `dartbrew test` | Runs the project's `package:test` files on a device and reports each test. |
 | `dartbrew devices` | Lists the consoles and Azahar reachable right now. |
 | `dartbrew pub`, `analyze`, `format`, `fix`, `doc`, `info` | Run the bundled Dart SDK's commands with the same arguments. |
@@ -123,6 +123,10 @@ otherwise Azahar's default user folder. Inside it, the custom storage folder
 from Azahar's settings wins over `sdmc/`. Set `DARTBREW_AZAHAR_SDMC` to the SD
 card folder if it picks the wrong one. dartbrew starts Azahar with the
 app and closes it when the run ends.
+
+Azahar runs build AOT. The JIT VM publishes the code it compiles with a cache
+call that only Luma3DS provides, and Azahar doesn't emulate it, so
+`--mode jit` with `-d azahar` is refused. Use a console for JIT.
 
 ### Without the netloader
 

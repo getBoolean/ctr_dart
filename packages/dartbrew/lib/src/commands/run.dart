@@ -48,20 +48,22 @@ Command<int> runCommand({
 );
 
 /// Adds the options shared by commands that build and run on a device
-/// (`run`, `test`): target, mode (JIT default), device, wait, timeout,
+/// (`run`, `test`): target, mode (JIT on a console, AOT in Azahar), device,
+/// wait, timeout,
 /// host port, Azahar path, project directory, offline and SDK.
 void addDeviceRunOptions(ArgParser parser) {
   addTargetOption(parser);
   parser
     ..addOption(
       'mode',
-      help: 'How the program is compiled.',
+      help:
+          'How the program is compiled. Defaults to jit on a console and '
+          'aot in Azahar.',
       allowed: [BuildMode.jit.name, BuildMode.aot.name],
       allowedHelp: {
         'jit': 'Kernel file run by the JIT VM; builds faster.',
         'aot': 'Ahead-of-time snapshot linked into the application.',
       },
-      defaultsTo: BuildMode.jit.name,
     )
     ..addOption(
       'device',
@@ -179,9 +181,23 @@ final class DeviceRunSettings {
         );
       }
     }
+    final azahar = device == 'azahar';
+    final mode = switch (args.option('mode')) {
+      final named? => BuildMode.values.byName(named),
+      null => azahar ? BuildMode.aot : BuildMode.jit,
+    };
+    if (azahar && mode == BuildMode.jit) {
+      // The JIT VM publishes code with Luma3DS's custom cache SVC, which
+      // Azahar's emulated kernel does not provide; the VM aborts at startup.
+      throw UsageException(
+        'JIT needs Luma3DS, which Azahar does not emulate. Use --mode aot '
+        'in Azahar, or run JIT on a console.',
+        usage,
+      );
+    }
     return DeviceRunSettings(
       target: selectedTarget(args),
-      mode: BuildMode.values.byName(args.option('mode')!),
+      mode: mode,
       address: address,
       wait: seconds('wait', allowZero: true)!,
       timeout: seconds('timeout'),
@@ -191,7 +207,7 @@ final class DeviceRunSettings {
       ).resolveSymbolicLinksSync(),
       offline: args.flag('offline'),
       sdkPath: sdkDirectory(args),
-      azahar: device == 'azahar',
+      azahar: azahar,
       azaharPath: args.option('azahar'),
     );
   }

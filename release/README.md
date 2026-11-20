@@ -142,19 +142,22 @@ The preview targets AOT and on-device JIT execution on CTR. File/network I/O,
 application isolates, FFI/native packages, universal SDK compatibility and
 Flutter remain unfinished. Other targets are unqualified.
 
-Preview .4 has not been qualified yet. Until its results are recorded, the
-evidence below belongs to the builds it names. All four preview .2 host bundles
-passed native builds, dependency inspection and real AOT/JIT build tests from
-extracted downloads with an empty PATH. Fresh AOT sample outputs from all four
-hosts also passed in Azahar. Physical-console evidence applies to the
-separately identified SDK32 builds. See [the native SDK notes](../docs/ctr-native-sdk.md).
+Preview .4 was qualified on 2026-11-20; the record is
+[`docs/qualification/0.1.0-preview.4/results.json`](../docs/qualification/0.1.0-preview.4/results.json).
+Each host bundle (Windows x64, Linux x64, macOS Intel and macOS Apple Silicon)
+was built and checked on its own host: native builds, dependency inspection and
+real AOT/JIT build tests from the extracted download with an empty PATH, with
+generated code matching the Linux reference apart from the DWARF producer host
+name. Each host's AOT sample passed in Azahar 2126.2. With the Windows bundle,
+the four curated programs passed on a New 3DS in JIT and AOT, `dartbrew test`
+reported per test in both modes, and the same programs passed in Azahar (AOT).
 This preview is unsigned; signing and macOS notarization are not configured.
 
 ## Publishing a release
 
-The source tree builds `0.1.0-preview.4`. Its launcher and runtime assets
-changed, so preview .4 must be qualified on all four hosts, a console and
-Azahar before upload, with its results recorded in a `results.json` file.
+The source tree builds `0.1.0-preview.4`. A release must be qualified on all
+four hosts, a console and Azahar before upload, with its results recorded in a
+`results.json` file under `docs/qualification/<version>/`.
 
 Before any `gh release upload`, run the publish guard against the recorded
 qualification results. It refuses archives whose version, name or SHA-256 do not

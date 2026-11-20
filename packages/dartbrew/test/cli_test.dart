@@ -1,3 +1,8 @@
+// Each test starts the CLI from source in fresh VMs, which can exceed the
+// default 30 s under a fully loaded parallel run.
+@Timeout(Duration(minutes: 3))
+library;
+
 import 'dart:io';
 
 import 'package:args/command_runner.dart';

@@ -25,7 +25,10 @@ class _Project {
 _Project _project({String? pubspec}) {
   final owner = Directory.systemTemp.createTempSync('dartbrew-compile-');
   addTearDown(() => owner.deleteSync(recursive: true));
-  final root = Directory(p.join(owner.path, 'project'))..createSync();
+  // The CLI resolves symlinks in the project path (macOS's TMPDIR is
+  // /var/folders/..., a symlink to /private/var/...), so expectations must too.
+  final root = Directory(p.join(owner.resolveSymbolicLinksSync(), 'project'))
+    ..createSync();
   if (pubspec != null) {
     File(p.join(root.path, 'pubspec.yaml')).writeAsStringSync(pubspec);
   }

@@ -1,0 +1,10 @@
+name: test_probe
+description: Device probe for package:test_api glue (experiment, see docs/ctr-supported-features.md).
+publish_to: none
+
+environment:
+  sdk: '>=3.11.0 <4.0.0'
+
+dependencies:
+  test: 1.33.0
+  test_api: 0.7.15

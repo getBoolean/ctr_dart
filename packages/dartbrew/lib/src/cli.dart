@@ -1,0 +1,69 @@
+import 'dart:io';
+
+import 'package:args/command_runner.dart';
+
+import 'commands/compile.dart';
+import 'commands/create.dart';
+import 'commands/devices.dart';
+import 'commands/doctor.dart';
+import 'commands/passthrough.dart';
+import 'commands/run.dart';
+import 'commands/test.dart';
+import 'targets/ctr/netloader.dart';
+
+/// The version injected at compile time with `-DDARTBREW_VERSION=<version>`.
+const version = String.fromEnvironment(
+  'DARTBREW_VERSION',
+  defaultValue: 'development',
+);
+
+CommandRunner<int> createRunner() {
+  final runner =
+      CommandRunner<int>(
+          'dartbrew',
+          'A command-line utility for building, running and testing Dart '
+              'programs on homebrew targets.',
+        )
+        ..addCommand(createCommand())
+        ..addCommand(compileCommand())
+        ..addCommand(runCommand())
+        ..addCommand(testCommand())
+        ..addCommand(devicesCommand())
+        ..addCommand(DoctorCommand());
+  passthroughCommands().forEach(runner.addCommand);
+  return runner;
+}
+
+/// Runs dartbrew and returns its exit code.
+///
+/// Usage errors exit 64, malformed input 65, file-system errors 78, and a
+/// failed child process exits with its own code (70 when it has none).
+Future<int> runCli(List<String> arguments) async {
+  if (arguments.length == 1 && arguments.single == '--version') {
+    stdout.writeln(version);
+    return 0;
+  }
+  final unsupported = unsupportedInvocationMessage(arguments);
+  if (unsupported != null) {
+    stderr.writeln(unsupported);
+    return 64;
+  }
+  try {
+    return await createRunner().run(forwardHelpArguments(arguments)) ?? 0;
+  } on UsageException catch (error) {
+    stderr.writeln('${error.message}\n${error.usage}');
+    return 64;
+  } on FormatException catch (error) {
+    stderr.writeln(error.message);
+    return 65;
+  } on FileSystemException catch (error) {
+    stderr.writeln(error);
+    return 78;
+  } on NetloaderException catch (error) {
+    stderr.writeln(error.message);
+    return 1;
+  } on ProcessException catch (error) {
+    stderr.writeln(error.message);
+    return error.errorCode > 0 ? error.errorCode : 70;
+  }
+}

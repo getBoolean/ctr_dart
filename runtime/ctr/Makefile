@@ -4,7 +4,7 @@ BUILD ?=
 VM_BUILD ?=
 CXX ?= g++
 HOST_FLAGS = -std=c++20 -Wall -Wextra -Werror -pthread -Isource
-SOURCES = source/embedder.cc source/lifecycle.cc source/timer_worker.cc source/report.cc
+SOURCES = source/embedder.cc source/lifecycle.cc source/timer_worker.cc source/report.cc source/link.cc source/unsupported.cc
 
 .PHONY: host-test host-vm check-build native-objects
 check-build:
@@ -17,6 +17,7 @@ host-test: check-build
 	$(CXX) $(HOST_FLAGS) test/lifecycle_test.cc source/lifecycle.cc -o "$(BUILD)/lifecycle_test"
 	timeout 20 "$(BUILD)/lifecycle_test"
 	$(CXX) $(HOST_FLAGS) -I"$(SDK)/runtime/include" -c source/embedder.cc -o "$(BUILD)/embedder.o"
+	$(CXX) $(HOST_FLAGS) -I"$(SDK)/runtime/include" -c source/unsupported.cc -o "$(BUILD)/unsupported.o"
 	$(CXX) $(HOST_FLAGS) test/report_test.cc source/report.cc -o "$(BUILD)/report_test"
 	timeout 20 "$(BUILD)/report_test"
 	python3 -m unittest discover -s test -p 'test_*.py' -v

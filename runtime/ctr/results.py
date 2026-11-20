@@ -4,6 +4,8 @@ import json
 KEYS = ('schema', 'run_id', 'fixture', 'mode', 'compatibility', 'artifact_sha256',
         'build_id', 'environment')
 PREFIX = 'CTR_RUNTIME '
+# Launcher contract schemas: 1 (cfg only), 2 (cfg host line or netloader argv).
+SCHEMAS = (1, 2)
 
 
 def validate(journal, expected, observation=None):
@@ -33,6 +35,8 @@ def validate(journal, expected, observation=None):
             if event == 'begin':
                 if active or any(record.get(key) != expected[key] for key in KEYS):
                     raise ValueError('duplicate begin or identity mismatch')
+                if record['schema'] not in SCHEMAS:
+                    raise ValueError('unsupported begin schema')
                 active = True
             elif not active:
                 raise ValueError('record before begin')

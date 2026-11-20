@@ -18,7 +18,7 @@ spec.loader.exec_module(results)
 
 @unittest.skipUnless(os.environ.get('CTR_HOST_VM'), 'set CTR_HOST_VM, CTR_TEST_SDK and CTR_TEST_PLATFORM for real VM checks')
 class HostVMTest(unittest.TestCase):
-    def run_program(self, body, stop=False, platform=None):
+    def run_program(self, body, stop=False, platform=None, vm_flag=None):
         sdk = Path(os.environ['CTR_TEST_SDK'])
         with tempfile.TemporaryDirectory(prefix='ctr-async-', dir=os.environ.get('CTR_TEST_TMP')) as directory:
             directory = Path(directory)
@@ -38,8 +38,9 @@ class HostVMTest(unittest.TestCase):
             command = [os.environ['CTR_HOST_VM'], str(kernel), str(config), str(journal)]
             if stop:
                 command.append('stop-on-input')
+            env = dict(os.environ, CTR_TEST_VM_FLAG=vm_flag) if vm_flag else None
             process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE, text=True)
+                                       stderr=subprocess.PIPE, text=True, env=env)
             try:
                 if stop:
                     # Stop only after a real periodic callback has reached stdout.
@@ -113,6 +114,31 @@ void main() {
         self.assertEqual((code, value['outcome']), (1, 'fail'))
         self.assertIn('async failure', '\n'.join(value['output']))
         self.assertIn('application.dart', '\n'.join(value['output']))
+
+    def check_unsupported_io(self, vm_flag=None):
+        # Two natives in one run: each message must name its own native. The
+        # first native File reaches is an SDK detail and may change on SDK bumps.
+        value, code = self.run_program('''
+import 'dart:io';
+void main() {
+  try { File('x').readAsStringSync(); } on UnsupportedError catch (e) { print('file: $e'); }
+  try { exit(3); } on UnsupportedError catch (e) { print('exit: $e'); }
+  print('after');
+}
+''', vm_flag=vm_flag)
+        self.assertEqual((code, value['outcome']), (0, 'pass'))
+        self.assertEqual(value['output'], [
+            'file: Unsupported operation: Namespace_GetDefault is not supported on CTR (dart:io)',
+            'exit: Unsupported operation: Process_Exit is not supported on CTR (dart:io)',
+            'after'])
+
+    def test_unsupported_io_native_throws_catchable_error(self):
+        # JIT resolves natives at compile time; without a resolver that is a compile error.
+        self.check_unsupported_io()
+
+    def test_unsupported_io_native_with_lazy_linking(self):
+        # AOT links natives at first call, where a missing native aborts the VM.
+        self.check_unsupported_io('--link_natives_lazily')
 
     def test_missing_private_hooks_cleans_partial_bootstrap(self):
         # The SDK's ordinary VM platform has no private CTR library.

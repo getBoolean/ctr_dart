@@ -1,0 +1,151 @@
+{
+  "version": "0.1.0-preview.4",
+  "date": "2026-11-20",
+  "source_commit": "4c4ab5bd21bc877d78d04d8aafd91c70d6b2c39a",
+  "sdk_head": "b1056c03eab479934538c293da82d356de11bab2",
+  "snapshot_hash": "c5e274828bf37a90359bd3b0753e3eb2",
+  "runtime_assets": {
+    "archive": "ctr-runtime-assets.zip",
+    "sha256": "46ae119dce9830ceb59e4c68b49fce941e13aa0f9372b7f06c958a31030b60a5",
+    "compatibility": {
+      "aot": "7c4d667cc8035f83c713d8ea37080a9d74f6206d67d68471263a6ed10768da2d",
+      "jit": "9ad391824a40bf6a666abbc228912bb7d33fab7780d404e8607ad77162107fe5"
+    }
+  },
+  "built": "locally (GitHub Actions unavailable); every host bundle ran build_native_sdk.py on its own host",
+  "hosts": [
+    {
+      "host": "linux-x64",
+      "sdk_archive": "dartbrew-0.1.0-preview.4-linux-x64.zip",
+      "sdk_sha256": "ca4374a74a5062cf36cc0438fc375d53f9fc2a979ee10444664328dafdc0b4a6",
+      "result": "pass",
+      "sdk_manifest_sha256": "e6aeceb801c78c8bf5aaa48f5084d8505ae411ecea6d3dff9a649e9d1bdcb125",
+      "files": 1118,
+      "verification": "verification-linux-x64.json",
+      "verification_sha256": "9df02d0001e14e7c747f7142aa4eb594e50587cc956eaec70236d9200f9e6d01",
+      "native_build_checks": "extracted archive passed with PATH empty",
+      "code_generation": {
+        "match": "exact",
+        "comparable_sha256": "8ebe738b858659ed34eaac54d33dfa52e4c48caf8a08d4dce3d0a13a22e7fb6d"
+      },
+      "binutils_source": "source-ctr-binutils-0.1.0-preview.4-linux-x64.zip",
+      "binutils_source_sha256": "a16d3b5d74ef5b4a53a64510cb8259eac720f1070511e5ef298180c465521cbf",
+      "azahar_aot_sample": {
+        "run_id": "799f88bce051bea242f39a1dd1127fdd",
+        "outcome": "pass",
+        "output": [
+          "native:42"
+        ]
+      },
+      "producer": "Docker Compose toolchain container (ctr-dart-toolchain) on the Windows workstation"
+    },
+    {
+      "host": "windows-x64",
+      "sdk_archive": "dartbrew-0.1.0-preview.4-windows-x64.zip",
+      "sdk_sha256": "ef9699aa1b17a88f006817f31929671302b66e093c0592d46fc0e3e28a8fe5df",
+      "result": "pass",
+      "sdk_manifest_sha256": "6a463be7dd84e6b4a26c18bad745fa9d54df7f7bd9ec062fa2a408262ede1eeb",
+      "files": 1165,
+      "verification": "verification-windows-x64.json",
+      "verification_sha256": "92f479d26ba0f86ff4706f7d6e3a2e00d9c53f84bd942fcead2695e400e7c85f",
+      "native_build_checks": "extracted archive passed with PATH empty",
+      "code_generation": {
+        "match": "dwarf-producer-host-only",
+        "comparable_sha256": "8ebe738b858659ed34eaac54d33dfa52e4c48caf8a08d4dce3d0a13a22e7fb6d"
+      },
+      "binutils_source": "source-ctr-binutils-0.1.0-preview.4-windows-x64.zip",
+      "binutils_source_sha256": "efb9f1366de0a3e949c371b21d8fa2ff600eebdd8d127b9060f783cc7d3c3b33",
+      "azahar_aot_sample": {
+        "run_id": "e72ec921e12886ccb875081dc5f6363a",
+        "outcome": "pass",
+        "output": [
+          "native:42"
+        ]
+      },
+      "producer": "Windows 11 workstation; binutils built in MSYS2 MINGW64 (msys2-base 2026-09-27)"
+    },
+    {
+      "host": "macos-arm64",
+      "sdk_archive": "dartbrew-0.1.0-preview.4-macos-arm64.zip",
+      "sdk_sha256": "ebcade2102ea61ef33ac7538855fb4873ef347f4b990cdeb7d635d5a27f875c6",
+      "result": "pass",
+      "sdk_manifest_sha256": "09956b9b500081c5a3216c61606c3e27bcf367d5e885457f40fdba93f8203b87",
+      "files": 1117,
+      "verification": "verification-macos-arm64.json",
+      "verification_sha256": "3b02adfb1f17366542ef5b4f8adff895ceabed34348753163d89e20037d17fb8",
+      "native_build_checks": "extracted archive passed with PATH empty",
+      "code_generation": {
+        "match": "dwarf-producer-host-only",
+        "comparable_sha256": "8ebe738b858659ed34eaac54d33dfa52e4c48caf8a08d4dce3d0a13a22e7fb6d"
+      },
+      "binutils_source": "source-ctr-binutils-0.1.0-preview.4-macos-arm64.zip",
+      "binutils_source_sha256": "99c979436597fb90ec6d78c6e40472d02b548d590750bc065083cc3cc872681c",
+      "azahar_aot_sample": {
+        "run_id": "714463d17289eeba3a4df0ed87693257",
+        "outcome": "pass",
+        "output": [
+          "native:42"
+        ]
+      },
+      "producer": "Mac mini (Apple silicon, macOS 27.0, Xcode 27.2), native arm64"
+    },
+    {
+      "host": "macos-x64",
+      "sdk_archive": "dartbrew-0.1.0-preview.4-macos-x64.zip",
+      "sdk_sha256": "e47456f43a8007c1950c09458aef545fa3c4b635022696ca6f25bbfa0977bd2b",
+      "result": "pass",
+      "sdk_manifest_sha256": "6b5247ad890a6e914c23d4647f950adf16299a3ca3f4ed43837c82f011ccdc0f",
+      "files": 1117,
+      "verification": "verification-macos-x64.json",
+      "verification_sha256": "d8a07270071d4d759f625704fb60795cb55bd3a15bc7058c7d9b4f30f6240cb2",
+      "native_build_checks": "extracted archive passed with PATH empty",
+      "code_generation": {
+        "match": "dwarf-producer-host-only",
+        "comparable_sha256": "8ebe738b858659ed34eaac54d33dfa52e4c48caf8a08d4dce3d0a13a22e7fb6d"
+      },
+      "binutils_source": "source-ctr-binutils-0.1.0-preview.4-macos-x64.zip",
+      "binutils_source_sha256": "4ffc95a01c9b3a2ba65639e43795bcfedc94abb0fc79d563aeea8c8b8303d90e",
+      "azahar_aot_sample": {
+        "run_id": "aa8da55818f2a069d3ffa8dcbfb8230e",
+        "outcome": "pass",
+        "output": [
+          "native:42"
+        ]
+      },
+      "producer": "Same Mac mini under Rosetta 2 (arch -x86_64, x86_64 CPython 3.12.14); x64 binutils compiled with CCC_OVERRIDE_OPTIONS=#^--target=x86_64-apple-macos13.0 because the Xcode clang is arm64-only; bundle checks run with TMPDIR resolved to /private/var/... (see notes)"
+    }
+  ],
+  "console": {
+    "device": "New Nintendo 3DS, Luma3DS, Homebrew Launcher netloader",
+    "sdk": "windows-x64 bundle, freshly extracted",
+    "fixtures": {
+      "hello-jit": "pass",
+      "hello-aot": "pass",
+      "async-jit": "pass",
+      "async-aot": "pass",
+      "exceptions-jit": "pass",
+      "exceptions-aot": "pass",
+      "gc_stress-jit": "pass",
+      "gc_stress-aot": "pass"
+    },
+    "dartbrew_test": {
+      "jit": "3 passed, 2 expected failures (plain expect failure; file I/O UnsupportedError), exit 1",
+      "aot": "3 passed, 2 expected failures (plain expect failure; file I/O UnsupportedError), exit 1"
+    }
+  },
+  "azahar": {
+    "version": "2126.2 (Windows MSVC build)",
+    "sdk": "windows-x64 bundle, freshly extracted",
+    "fixtures": {
+      "hello-aot": "pass",
+      "async-aot": "pass",
+      "exceptions-aot": "pass",
+      "gc_stress-aot": "pass"
+    },
+    "dartbrew_create_then_test": "2 passed, exit 0",
+    "jit": "not supported in Azahar: the JIT VM needs Luma3DS custom SVC 0x80; dartbrew refuses --mode jit with -d azahar"
+  },
+  "notes": [
+    "The macOS checks needed TMPDIR set to its resolved /private/var path: compile_test.dart compared a symlinked temp path. Test-only issue; fixed after the build commit."
+  ]
+}

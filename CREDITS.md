@@ -31,16 +31,30 @@ toolchain, patch and dependency pins are in `toolchain/versions.json`.
 - **Chromium/depot_tools, GN, Ninja and LLVM/Clang contributors:** pinned host
   dependency synchronization, build generation and host compiler tools used by
   the SDK build. Their own source/distribution notices remain applicable.
-- **Dart `args`, `path`, `crypto`, `ffi` and `test` contributors:** argument parsing, host path
-  handling and CLI tests; versions are locked in `packages/ctr_dart/pubspec.lock`.
-  The standalone host executable includes `args`, `path`, `crypto` and `ffi`; their
-  notices are bundled under `release/licenses/`.
-  `test` is a development dependency.
-  Host-side FFI reserves output directories atomically through the operating
-  system; this does not expose FFI to 3DS applications.
+- **Dart package contributors:** the `dartbrew` executable includes `args`
+  (argument parsing), `path` (host paths), `crypto` (hashing), `ffi` (host
+  system calls), `image` (decoding and scaling app icons), `yaml` (reading
+  `pubspec.yaml`) and the packages these depend on: `archive`, `posix`, `meta`,
+  `collection`, `source_span`, `string_scanner`, `term_glyph` and `typed_data`.
+  Versions are locked in `packages/dartbrew/pubspec.lock`, and each package's
+  notice is bundled under `release/licenses/`. `test` and `lints` are
+  development dependencies. Host-side FFI reserves output directories
+  atomically through the operating system; this does not expose FFI to
+  applications on the console.
+- **Dart `test` contributors:** `dartbrew test` drives `package:test_api`'s
+  test backend in a generated entrypoint. The `test` and `test_api` packages
+  come from the user's own project dependencies and are not bundled with the
+  SDK.
+- **devkitPro contributors, 3dslink and the Homebrew Launcher netloader:** the
+  network protocol `dartbrew run`, `test` and `devices` use to find a console,
+  send it an app and receive output was designed by devkitPro for 3dslink and
+  Homebrew Launcher. dartbrew's client is a clean-room Dart implementation of
+  that protocol; no 3dslink or Homebrew Launcher source is copied or bundled. [3dslink](https://github.com/devkitPro/3dslink),
+  [Homebrew Launcher](https://github.com/devkitPro/3ds-hbmenu).
 - **Azahar contributors:** actual AOT emulator execution used in qualification.
   [Azahar](https://github.com/azahar-emu/azahar). Emulator success is not substituted
-  for physical-console evidence.
+  for physical-console evidence. `dartbrew run -d azahar` and `dartbrew test -d
+  azahar` launch a user-installed Azahar; Azahar is not bundled.
   Its loader was also inspected for 3DSX format facts while implementing the
   CLI's independent ELF-to-3DSX encoder; no converter source was copied.
 - **LumaTeam and Homebrew Launcher contributors:** the owner's modified-console

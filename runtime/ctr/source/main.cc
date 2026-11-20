@@ -1,9 +1,12 @@
 #include <3ds.h>
+#include <arpa/inet.h>
 #include <atomic>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include "embedder.h"
 #include "input.h"
+#include "link.h"
 #include "vm/os.h"
 #include "vm/os_thread.h"
 
@@ -28,20 +31,47 @@ void Execute(dart::uword parameter) {
   run->outcome = run->runner.Run(application);
   run->done.store(true, std::memory_order_release);
 }
+// Dart threads and this main thread both run at priority 0x30 on core 0, and
+// the scheduler does not time-slice equal priorities, so a CPU-bound program
+// would starve a main-loop keepalive. A higher-priority thread preempts it.
+constexpr s32 kKeepalivePriority = 0x2F;
+void SendKeepalives(void* parameter) {
+  auto* run = static_cast<Run*>(parameter);
+  while (!run->done.load(std::memory_order_acquire)) {
+    svcSleepThread(2000000000LL);
+    if (!run->done.load(std::memory_order_acquire)) run->report.Keepalive();
+  }
+}
 bool Entropy(uint8_t* buffer, intptr_t length) {
   return dart::OS::GetEntropy(buffer, length);
 }
 }
-int main() {
+int main(int argc, char** argv) {
   gfxInitDefault();
   consoleInit(GFX_TOP, nullptr);
   Result filesystem = fsInit();
   if (R_FAILED(filesystem)) { gfxExit(); return 1; }
   Run run;
-  FILE* config = fopen("sdmc:/ctr-runtime-run.cfg", "r");
+  // libctru's default argv setup moved the netloader's trailing host token into
+  // __3dslink_host (zero for SD-card and Azahar launches).
+  uint8_t link_host[4];
+  memcpy(link_host, &__3dslink_host.s_addr, sizeof(link_host));
+  ctr::RunConfig identity;
+  ctr::ArgIdentity from_args = ctr::ReadArgs(argc, argv, ctr_program.build, link_host, &identity);
+  bool identified = from_args == ctr::ArgIdentity::ok;
+  if (from_args == ctr::ArgIdentity::absent) {
+    FILE* config = fopen("sdmc:/ctr-runtime-run.cfg", "r");
+    identified = ctr::ReadConfig(config, &identity);
+    if (config) fclose(config);
+  }
+  // Connect before begin so every record reaches the host; a connect failure is
+  // reported as the first output record once begin has succeeded.
+  ctr::Link link;
+  std::string link_error;
+  if (identified && identity.host && link.Open(identity.address, identity.port, &link_error))
+    run.report.Attach(&link);
   FILE* journal = fopen("sdmc:/ctr-runtime.log", "a");
-  bool began = run.report.Begin(config, journal, ctr_program.build);
-  if (config) fclose(config);
+  bool began = identified && run.report.Begin(identity, journal, ctr_program.build, link_error);
   bool initialized = false, cleanup = true;
   ctr::Input input;
   if (began) {
@@ -77,6 +107,8 @@ int main() {
         run.report.Output("application runner creation failed");
       } else {
         bool input_lost = false;
+        Thread keepalives = threadCreate(SendKeepalives, &run, 4 * 1024,
+                                         kKeepalivePriority, 0, false);
         while (!run.done.load(std::memory_order_acquire)) {
           if (!aptMainLoop()) run.runner.RequestStop();
           else if (!input_lost) {
@@ -90,6 +122,10 @@ int main() {
           gspWaitForVBlank();
         }
         dart::OSThread::Join(run.join);
+        if (keepalives) {
+          threadJoin(keepalives, U64_MAX);
+          threadFree(keepalives);
+        }
         if (input_lost)
           run.report.Output("CTR input shared memory became unavailable");
       }
@@ -99,6 +135,8 @@ int main() {
     input.Stop();
     run.outcome = run.report.End(run.outcome, cleanup);
   }
+  run.report.Attach(nullptr);
+  link.Close();
   if (journal && fclose(journal)) run.outcome = ctr::Outcome::fail;
   fsExit();
   gfxExit();

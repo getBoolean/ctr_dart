@@ -13,6 +13,7 @@ void main(List<String> args) {
   for (final name in [
     '_installHooks',
     '_getPrintClosure',
+    '_getUriBaseClosure',
     '_schedule',
     '_clock',
     '_print',

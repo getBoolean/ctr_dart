@@ -8,6 +8,48 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 
+README_TEXT = r'''dartbrew native SDK (experimental preview)
+
+dartbrew builds, runs and tests Dart programs for homebrew targets. CTR, the
+3DS-family platform codename, is the only build target in this preview. Its
+apps need a New 3DS-family console with Luma3DS and Homebrew Launcher, or the
+Azahar emulator.
+
+Windows: use .\dartbrew.exe. macOS/Linux: use ./dartbrew. You can also add
+this folder to PATH. Keep projects and build output outside this folder.
+
+  dartbrew doctor          Verify the bundled tools and runtime assets.
+  dartbrew create hello    Create a console-app project in the hello folder.
+  dartbrew compile --project-directory hello --output new-folder hello/bin/main.dart
+                           Build an app: AOT by default, --mode jit for JIT.
+                           Copy the output's SDROOT contents to the SD card
+                           and launch the app from Homebrew Launcher.
+  dartbrew run             Build the project in the current folder, send it to
+                           a device and show its output here (JIT by default).
+  dartbrew test            Run the project's package:test files on a device.
+  dartbrew devices         List the consoles and Azahar you can run on.
+  dartbrew pub, analyze, format, fix, doc, info
+                           Run the bundled Dart tools.
+
+dartbrew compile replaces the build command of the earlier ctr CLI.
+
+Consoles: open Homebrew Launcher and press Y to start the netloader before
+dartbrew run or dartbrew test. dartbrew finds the console on the local
+network, or pass -d <IPv4 address>. Allow UDP and TCP port 17491 through this
+computer's firewall; --host-port picks another TCP port for program output.
+
+Azahar: pass -d azahar. dartbrew finds Azahar from --azahar <path>, then the
+DARTBREW_AZAHAR environment variable, then PATH. Set DARTBREW_AZAHAR_SDMC to
+Azahar's sdmc folder if dartbrew cannot find the emulated SD card.
+
+All build tools and target libraries are bundled. No Docker or separately
+installed compiler is required. Pub dependencies need network access on first
+resolution, or a populated cache with --offline.
+
+File/network I/O, application isolates, FFI and Flutter are not qualified by
+this preview. Run "dartbrew help <command>" for every option.
+'''
+
 
 def digest(path):
     with Path(path).open('rb') as stream:
@@ -66,7 +108,7 @@ def assemble(cli, precompiler, binutils, runtime, output, version):
     source_asset = output.parent / f'source-ctr-binutils-{version}-{host["host"]}.zip'
     checked(binutils / 'source', arm['source']['archive'], arm['source']['sha256'])
     archive_sdk(binutils / 'source', source_asset)
-    inputs.append((cli, 'ctr' + suffix, True))
+    inputs.append((cli, 'dartbrew' + suffix, True))
     output.mkdir(parents=True)
     for source, name, executable in inputs:
         destination = output / name
@@ -90,14 +132,7 @@ def assemble(cli, precompiler, binutils, runtime, output, version):
                          (binutils / 'provenance.json', 'binutils.json'),
                          (runtime / 'runtime.json', 'runtime.json')]:
         shutil.copyfile(source, provenance / name)
-    (output / 'README.txt').write_text(
-        'CTR Dart native SDK (experimental New 3DS runtime)\n'
-        'Run ctr doctor, then ctr build path/to/main.dart --mode aot --output fresh-directory.\n'
-        'Windows: use .\\ctr.exe. macOS/Linux: use ./ctr.\n'
-        'All build tools and target libraries are bundled. No Docker or separately installed compiler is required.\n'
-        'Pub dependencies need network access on first resolution, or a populated cache with --offline.\n'
-        'Copy SDROOT contents to your SD card and launch the application through Homebrew Launcher.\n'
-        'File/network I/O, application isolates, FFI and Flutter are not qualified by this preview.\n', encoding='utf-8')
+    (output / 'README.txt').write_text(README_TEXT, encoding='utf-8')
     executable_paths = [name for _, name, executable in inputs if executable]
     files = {path.relative_to(output).as_posix(): digest(path)
              for path in sorted(output.rglob('*')) if path.is_file()}

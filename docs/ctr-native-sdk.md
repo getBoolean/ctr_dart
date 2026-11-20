@@ -11,8 +11,11 @@ native SDK.
 
 ## Established evidence
 
-- The SDK remains the 32-patch tree at
-  `7eb1156c65309c5c531b82f409ae242c06a33b29`.
+- Preview.3 and earlier use the 32-patch tree at
+  `7eb1156c65309c5c531b82f409ae242c06a33b29`. Preview.4 adds patch 0033
+  (`Uri.base` for CTR), giving the 33-patch tree at
+  `b1056c03eab479934538c293da82d356de11bab2`. The evidence below was gathered
+  on the 32-patch tree.
 - The compiled Linux SDK built hello, async, GC stress, exceptions and focused
   numerics in both AOT and JIT modes. Networking was disabled, the SDK mount was
   read-only, no source SDK checkout was mounted and PATH contained only bundled
@@ -43,7 +46,10 @@ native SDK.
   standard glibc components only. The release baseline is glibc 2.36 or newer.
 
 The generated precompiler snapshot hash is
-`c5e274828bf37a90359bd3b0753e3eb2`, with SDK short hash `7eb1156c65`.
+`c5e274828bf37a90359bd3b0753e3eb2`, with SDK short hash `7eb1156c65` on the
+32-patch tree and `b1056c03ea` on the 33-patch tree. Patch 0033 changes only
+Dart library code, so the snapshot hash is unchanged, but the SDK hash is not:
+kernel compilers and `gen_snapshot` must be rebuilt with the runtime.
 No stock hash is substituted. Producer graph changes must preserve these
 identities and still require generated-code/runtime compatibility checks.
 
@@ -69,6 +75,27 @@ Native host tools are built separately for Windows x64, Linux x64, macOS Intel
 and Apple Silicon. Runtime assets can be shared across hosts, with per-mode
 compatibility identities retained. A host executable smoke test is distinct
 from an offline source-to-3DSX build and from actual target execution.
+
+## Building host tools locally on Windows
+
+`release/native_precompiler.py` runs on a Windows workstation as well as in CI.
+Match the CI job (`.github/workflows/native-precompiler.yml`):
+
+- Install the Windows SDK pinned in `release/native-windows-sdk.json`; the Dart
+  toolchain helper looks for that exact version.
+- Set `DEPOT_TOOLS_WIN_TOOLCHAIN=0` and `PYTHONUTF8=1`. Pass
+  `core.longpaths=true` and `core.autocrlf=false` to git, for example through
+  `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n`, rather than
+  changing global configuration.
+- When several Visual Studio versions are installed, set `vs2022_install` to the
+  Visual Studio 2022 directory with backslashes.
+- Put `--work-dir` at least two directories below the drive root (for example
+  `C:\dartbrew-build\ctr-native-producer`). The Dart SDK's
+  `build/toolchain/win/setup_toolchain.py` replaces the build directory's
+  grandparent with `..\..` in `INCLUDE` and `LIB`; when that grandparent is the
+  drive root, `C:\Program Files\...` becomes `..\..Program Files\...` and
+  `gn gen` fails with "Path ... from environment variable include does not
+  exist".
 
 ## Distribution and qualification
 

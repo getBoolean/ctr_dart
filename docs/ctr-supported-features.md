@@ -1,7 +1,8 @@
 # Current Dart CTR support
 
 This inventory describes the 32-patch SDK on 2026-11-17, with New 3DS as the
-reference device. It records tested capabilities rather than promising every
+reference device; the 2026-11-19 console results below add the 33-patch
+launcher work. It records tested capabilities rather than promising every
 program using a library will work. The current hardware matrix contains ten
 exact-artifact passes, each with successful cleanup and a terminal pass.
 
@@ -41,13 +42,11 @@ same. Azahar was not run.
 | `DynamicLibrary.open` (FFI) | Catchable `ArgumentError`: loading dynamic libraries is not supported | not run |
 | `stdout.write` | Catchable `UnsupportedError`: `File_GetStdioHandleType` | not run |
 | `exit` | `UnsupportedError`: `Process_Exit`. Uncaught, so the run ends as fail with a full stack trace | not run |
-| `package:test` files with `dartbrew test` | Run and report per test (AOT). A JIT test app of 18.9 MB failed to upload over console Wi-Fi | not run |
+| `package:test` files with `dartbrew test` | Run and report per test in AOT and JIT. An 18.9 MB JIT test app uploads once Wi-Fi interference is reduced | not run |
 
-Known issue: CTR has no `Uri.base`, so failing tests report "stack trace
-unavailable". After a failing test, the test app stays on the console for about
-30 s before exiting: test_api's timeout timer is not cancelled when its
-stack-trace cleanup fails. Results are reported correctly when the device sends
-`done`. Giving the CTR platform a `Uri.base` is the fix.
+`Uri.base` is `file:///` on CTR (SDK patch 0033, installed by the launcher), so
+`package:path` and `package:stack_trace` work and failing tests report full
+stack traces. Confirmed on the console on 2026-11-19 with the 33-patch tree.
 
 ## Reproducibility and evidence
 

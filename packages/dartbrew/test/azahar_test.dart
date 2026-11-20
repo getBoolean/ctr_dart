@@ -44,12 +44,18 @@ AzaharHost _host(
   currentDirectory: cwd,
 );
 
-void _emuIni(String userDir, String sdmc, {bool custom = true}) {
-  File(p.join(userDir, 'config', 'emu.ini'))
+void _emuIni(
+  String userDir,
+  String sdmc, {
+  bool custom = true,
+  String name = 'emu.ini',
+  String section = 'Data Storage',
+}) {
+  File(p.join(userDir, 'config', name))
     ..createSync(recursive: true)
     ..writeAsStringSync(
       '[Layout]\nsdmc_directory=wrong\n\n'
-      '[Data Storage]\n'
+      '[$section]\n'
       'use_custom_storage\\default=false\n'
       'use_custom_storage=$custom\n'
       'sdmc_directory=$sdmc\n',
@@ -208,6 +214,35 @@ void main() {
           _host('windows', dir, {'APPDATA': appData}),
         ),
         custom,
+      );
+    });
+
+    test('qt-config.ini custom storage, with the encoded section name, '
+        'beats emu.ini', () {
+      final dir = _temp().path;
+      final appData = p.join(dir, 'Roaming');
+      final user = p.join(appData, 'Azahar');
+      final qt = p.join(dir, 'qt-sdmc');
+      _emuIni(user, p.join(dir, 'emu-sdmc'));
+      _emuIni(user, qt, name: 'qt-config.ini', section: 'Data%20Storage');
+
+      expect(
+        azaharSdmc('azahar.exe', _host('windows', dir, {'APPDATA': appData})),
+        qt,
+      );
+    });
+
+    test('qt-config.ini without custom storage falls through to emu.ini', () {
+      final dir = _temp().path;
+      final appData = p.join(dir, 'Roaming');
+      final user = p.join(appData, 'Azahar');
+      final emu = p.join(dir, 'emu-sdmc');
+      _emuIni(user, emu);
+      _emuIni(user, 'x', custom: false, name: 'qt-config.ini');
+
+      expect(
+        azaharSdmc('azahar.exe', _host('windows', dir, {'APPDATA': appData})),
+        emu,
       );
     });
 

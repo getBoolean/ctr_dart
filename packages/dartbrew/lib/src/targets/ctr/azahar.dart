@@ -104,10 +104,11 @@ String? findAzahar(AzaharHost host) {
 ///
 /// `DARTBREW_AZAHAR_SDMC` wins. Otherwise Azahar's user directory is a
 /// portable `user/` next to the executable (Windows) or in the working
-/// directory (Linux, macOS) when it exists, else the per-OS default. An
-/// `emu.ini` in that user directory's `config/` with `[Data Storage]
-/// use_custom_storage=true` points the card at its `sdmc_directory`;
-/// otherwise the card is the user directory's `sdmc/`.
+/// directory (Linux, macOS) when it exists, else the per-OS default. A
+/// `qt-config.ini` (the Qt frontend dartbrew launches) or `emu.ini` in that
+/// user directory's `config/` with `[Data Storage] use_custom_storage=true`
+/// points the card at its `sdmc_directory`, `qt-config.ini` first; otherwise
+/// the card is the user directory's `sdmc/`.
 ///
 /// Throws an [AzaharNotFound] when the home directory is unknown.
 String azaharSdmc(String executable, AzaharHost host) {
@@ -122,8 +123,12 @@ String azaharSdmc(String executable, AzaharHost host) {
   final user = Directory(portable).existsSync()
       ? portable
       : _defaultUserDirectory(host);
-  final custom = _customSdmc(File(p.join(user, 'config', 'emu.ini')));
-  return custom ?? p.join(user, 'sdmc');
+  for (final name in const ['qt-config.ini', 'emu.ini']) {
+    if (_customSdmc(File(p.join(user, 'config', name))) case final custom?) {
+      return custom;
+    }
+  }
+  return p.join(user, 'sdmc');
 }
 
 String _defaultUserDirectory(AzaharHost host) {
@@ -147,7 +152,8 @@ String _defaultUserDirectory(AzaharHost host) {
 }
 
 /// The `sdmc_directory` of [config] when its `[Data Storage]` section turns
-/// on `use_custom_storage`, else null.
+/// on `use_custom_storage`, else null. Qt's settings files spell the section
+/// `[Data%20Storage]`.
 String? _customSdmc(File config) {
   if (!config.existsSync()) return null;
   String? section;
@@ -156,7 +162,10 @@ String? _customSdmc(File config) {
   for (final raw in config.readAsLinesSync()) {
     final line = raw.trim();
     if (line.startsWith('[') && line.endsWith(']')) {
-      section = line.substring(1, line.length - 1).trim();
+      section = line
+          .substring(1, line.length - 1)
+          .trim()
+          .replaceAll('%20', ' ');
       continue;
     }
     if (section != 'Data Storage') continue;

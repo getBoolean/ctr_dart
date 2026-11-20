@@ -24,9 +24,11 @@ Each button is held about 150 ms, then released. Buttons: A B X Y L R START SELE
 
 ## Arming the netloader and uploading
 
-1. `press.py <ip> B Y`. B dismisses a netloader error dialog if one is showing, and Y starts the netloader. Never press A blindly: in the Homebrew Launcher menu it launches the selected app.
-2. The netloader takes a moment to start listening. Retry a *refused* connect for a few seconds. A refused connect does not disturb it.
-3. Upload: `dartbrew run -d <ip>` or `dartbrew test -d <ip>`. Each upload uses up the netloader; it returns to the menu after the app exits (or after any error), so arm again before every upload.
+1. Press **Y only** to start the netloader: `press.py <ip> Y`. Press B only when you know an error dialog is showing. B on the netloader's waiting screen *cancels* it. Never press A blindly: in the Homebrew Launcher menu it launches the selected app.
+2. After an app exits, wait about **15 s** before pressing Y. Homebrew Launcher reloads first and drops presses meanwhile. A second Y 3 s later is harmless: Y does nothing on the netloader screen.
+3. Confirm the netloader is armed with `dartbrew devices --wait 5` (UDP only, same subnet). It does not use up the netloader, unlike a TCP connect.
+4. Upload: `dartbrew run -d <ip>` or `dartbrew test -d <ip>`. Each upload uses up the netloader, so arm again before every upload.
+5. Run hardware uploads **one at a time**. Two dartbrew runs racing the same netloader leave it in a `recv:19` error, and a console abused that way froze on HOME and needed a hard power-off. On Windows, stopping a background shell task does not kill its child processes. Before starting another loop, kill leftovers explicitly: `Get-CimInstance Win32_Process | ? CommandLine -match 'dartbrew\.exe run' | % { Stop-Process -Id $_.ProcessId -Force }`.
 
 ## Rules learned the hard way
 

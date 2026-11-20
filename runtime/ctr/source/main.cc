@@ -31,6 +31,17 @@ void Execute(dart::uword parameter) {
   run->outcome = run->runner.Run(application);
   run->done.store(true, std::memory_order_release);
 }
+// Dart threads and this main thread both run at priority 0x30 on core 0, and
+// the scheduler does not time-slice equal priorities, so a CPU-bound program
+// would starve a main-loop keepalive. A higher-priority thread preempts it.
+constexpr s32 kKeepalivePriority = 0x2F;
+void SendKeepalives(void* parameter) {
+  auto* run = static_cast<Run*>(parameter);
+  while (!run->done.load(std::memory_order_acquire)) {
+    svcSleepThread(2000000000LL);
+    if (!run->done.load(std::memory_order_acquire)) run->report.Keepalive();
+  }
+}
 bool Entropy(uint8_t* buffer, intptr_t length) {
   return dart::OS::GetEntropy(buffer, length);
 }
@@ -96,12 +107,9 @@ int main(int argc, char** argv) {
         run.report.Output("application runner creation failed");
       } else {
         bool input_lost = false;
-        u64 keepalive = osGetTime();
+        Thread keepalives = threadCreate(SendKeepalives, &run, 4 * 1024,
+                                         kKeepalivePriority, 0, false);
         while (!run.done.load(std::memory_order_acquire)) {
-          if (osGetTime() - keepalive >= 2000) {
-            run.report.Keepalive();
-            keepalive = osGetTime();
-          }
           if (!aptMainLoop()) run.runner.RequestStop();
           else if (!input_lost) {
             u32 keys = 0;
@@ -114,6 +122,10 @@ int main(int argc, char** argv) {
           gspWaitForVBlank();
         }
         dart::OSThread::Join(run.join);
+        if (keepalives) {
+          threadJoin(keepalives, U64_MAX);
+          threadFree(keepalives);
+        }
         if (input_lost)
           run.report.Output("CTR input shared memory became unavailable");
       }

@@ -133,6 +133,10 @@
     {
       "path": "patches/dart/0032-ctr-global-worker-budget.patch",
       "sha256": "e18a0c17892848fad8704577bf09657eeea5ac75e354a5c597e2d8734cba811e"
+    },
+    {
+      "path": "patches/dart/0033-ctr-uri-base.patch",
+      "sha256": "dc57e6aba9f229e4a8cd0732ab6d82cdb7b719f0cbc6f97d51c1cc8fb74522eb"
     }
   ],
   "dependencies": {

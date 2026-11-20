@@ -56,6 +56,8 @@ bool Embedder::Bootstrap() {
   if (!Check(immediate) || !Check(Call(Library("dart:async"), "_setScheduleImmediateClosure", 1, &immediate))) return false;
   Dart_Handle print = Call(hooks, "_getPrintClosure");
   if (!Check(print) || !Check(Dart_SetField(Library("dart:_internal"), String("_printClosure"), print))) return false;
+  Dart_Handle uri_base = Call(hooks, "_getUriBaseClosure");
+  if (!Check(uri_base) || !Check(Dart_SetField(Library("dart:core"), String("_uriBaseClosure"), uri_base))) return false;
 #if !defined(DART_PRECOMPILED_RUNTIME)
   if (!Check(Dart_LoadScriptFromKernel(program_.kernel, program_.kernel_size))) return false;
 #endif
